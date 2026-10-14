@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracking QA &amp; Client Audit: Chrome extension for GA4, GTM, Meta, TikTok and Consent Mode</title>
+  <meta name="description" content="One side panel that audits GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads and Reddit tags plus Consent Mode v2, then turns the result into a branded client report.">
+  <meta property="og:title" content="Tracking QA & Client Audit">
+  <meta property="og:description" content="Find broken tracking and consent problems in one panel. Send the client a branded report.">
+  <meta property="og:image" content="assets/report-top.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/icon128.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff; --bg-2: #f6f7f9; --fg: #111318; --muted: #5d6470; --line: #e3e6ea;
+      --accent: #2f5bea; --accent-2: #0f766e; --critical: #c4271b; --warning: #a86600; --pass: #11804a;
+      --card: #ffffff; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0f1115; --bg-2: #151820; --fg: #e9ebef; --muted: #9aa2ae; --line: #262b35;
+        --accent: #7c97ff; --accent-2: #3cc6b4; --critical: #ff6b5e; --warning: #f0b43c; --pass: #45c37f;
+        --card: #171a21; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0f1115; --bg-2: #151820; --fg: #e9ebef; --muted: #9aa2ae; --line: #262b35;
+      --accent: #7c97ff; --accent-2: #3cc6b4; --critical: #ff6b5e; --warning: #f0b43c; --pass: #45c37f;
+      --card: #171a21; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em; background: var(--bg-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+    header.nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+    header.nav .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); text-decoration: none; }
+    .logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .nav-links { display: flex; gap: 22px; margin-left: auto; font-size: 14px; }
+    .nav-links a { color: var(--muted); text-decoration: none; }
+    .nav-links a:hover { color: var(--fg); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid transparent; }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.ghost { border-color: var(--line); color: var(--fg); background: var(--card); }
+    .btn.sm { padding: 7px 12px; font-size: 14px; }
+
+    .hero { padding: 72px 0 40px; }
+    .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+    .eyebrow { display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent-2); background: color-mix(in srgb, var(--accent-2) 12%, transparent); padding: 4px 10px; border-radius: 999px; margin-bottom: 18px; }
+    h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.07; letter-spacing: -.025em; margin: 0 0 18px; font-weight: 800; }
+    h1 em { font-style: normal; color: var(--accent); }
+    .lede { font-size: 19px; color: var(--muted); margin: 0 0 28px; max-width: 560px; }
+    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .platforms { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .platforms span { font-size: 12.5px; font-weight: 500; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--muted); background: var(--card); }
+    .hero-shot { position: relative; }
+    .hero-shot img { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .hero-shot .panel { position: absolute; width: 46%; right: -6%; bottom: -10%; border-radius: 12px; }
+
+    section { padding: 72px 0; }
+    section.alt { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -.02em; line-height: 1.15; margin: 0 0 12px; font-weight: 750; }
+    .sub { color: var(--muted); font-size: 17px; max-width: 680px; margin: 0 0 40px; }
+
+    .pain { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .pain div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+    .pain b { display: block; margin-bottom: 6px; }
+    .pain p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+    .feature .ico { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); margin-bottom: 14px; }
+    .feature .ico svg { width: 20px; height: 20px; }
+    .feature h3 { margin: 0 0 6px; font-size: 17px; }
+    .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+    .tag-new { font-size: 11px; font-weight: 700; color: var(--accent-2); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
+
+    .showcase { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+    .showcase figure { margin: 0; }
+    .showcase img { width: 100%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); display: block; }
+    .showcase figcaption { margin-top: 12px; font-size: 14.5px; color: var(--muted); }
+    .showcase figcaption b { color: var(--fg); display: block; }
+
+    .report-wrap { display: grid; grid-template-columns: .9fr 1.1fr; gap: 48px; align-items: center; }
+    .report-wrap img { width: 100%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+    ul.checks { list-style: none; padding: 0; margin: 0; }
+    ul.checks li { padding: 8px 0 8px 30px; position: relative; border-bottom: 1px solid var(--line); }
+    ul.checks li::before { content: ""; position: absolute; left: 0; top: 13px; width: 18px; height: 18px; border-radius: 50%; background: color-mix(in srgb, var(--pass) 16%, transparent); }
+    ul.checks li::after { content: ""; position: absolute; left: 6px; top: 16px; width: 5px; height: 9px; border: solid var(--pass); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    table.cmp { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 14px; }
+    table.cmp th, table.cmp td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: center; }
+    table.cmp th:first-child, table.cmp td:first-child { text-align: left; position: sticky; left: 0; background: var(--card); }
+    table.cmp thead th { font-size: 12.5px; font-weight: 600; color: var(--muted); vertical-align: bottom; }
+    table.cmp thead th.us { color: var(--accent); }
+    table.cmp td.us { background: color-mix(in srgb, var(--accent) 7%, transparent); font-weight: 600; }
+    table.cmp tr.group td { text-align: left; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--bg-2); }
+    .y { color: var(--pass); font-weight: 700; } .n { color: var(--muted); opacity: .6; } .p { color: var(--warning); font-weight: 700; } .q { color: var(--muted); }
+    .legend { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+    .rules { columns: 2; column-gap: 32px; }
+    details.rule-group { break-inside: avoid; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 0 0 14px; }
+    details.rule-group summary { cursor: pointer; font-weight: 650; }
+    details.rule-group ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; }
+    details.rule-group li { margin: 4px 0; }
+    .sev { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; margin-right: 6px; vertical-align: 1px; }
+    .sev.c { color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, transparent); }
+    .sev.w { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+
+    .pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 820px; }
+    .plan { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+    .plan.pro { border: 2px solid var(--accent); box-shadow: var(--shadow); }
+    .plan h3 { margin: 0; font-size: 18px; }
+    .price { font-size: 40px; font-weight: 800; letter-spacing: -.02em; margin: 10px 0 2px; }
+    .price small { font-size: 15px; color: var(--muted); font-weight: 500; }
+    .plan ul { padding-left: 0; list-style: none; margin: 18px 0 0; }
+    .plan li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 15px; }
+
+    .privacy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .privacy div { border-left: 3px solid var(--accent-2); padding: 4px 0 4px 16px; }
+    .privacy b { display: block; }
+    .privacy p { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+
+    .faq details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+    .faq summary { cursor: pointer; font-weight: 600; font-size: 17px; }
+    .faq p { color: var(--muted); margin: 10px 0 0; }
+
+    .install { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+    .install ol { margin: 0; padding-left: 20px; }
+    .install li { margin: 6px 0; }
+
+    footer { padding: 36px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+    @media (max-width: 900px) {
+      .hero .wrap, .report-wrap { grid-template-columns: 1fr; }
+      .hero-shot .panel { right: 0; bottom: -8%; width: 44%; }
+      .features, .pain, .showcase, .privacy { grid-template-columns: 1fr 1fr; }
+      .rules { columns: 1; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 600px) {
+      .features, .pain, .showcase, .privacy, .pricing { grid-template-columns: 1fr; }
+      .hero { padding-top: 40px; }
+      section { padding: 52px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap">
+      <a class="logo" href="#"><img src="assets/icon128.png" alt="">Tracking QA</a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#report">Client report</a>
+        <a href="#compare">Compare</a>
+        <a href="#checks">All checks</a>
+        <a href="#pricing">Pricing</a>
+      </nav>
+      <a class="btn primary sm" href="#install">Install</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <span class="eyebrow">Chrome extension for agencies &amp; freelance marketers</span>
+          <h1>Find broken tracking in one panel. <em>Send the client a report.</em></h1>
+          <p class="lede">GA4, GTM, Meta, TikTok and six more ad pixels, plus Google Consent Mode v2, checked against 50+ rules on any page. Then one click gives you a branded PDF your client will actually read.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="#install">Install free</a>
+            <a class="btn ghost" href="https://github.com/shadabkhansir/Tracking-QA-client-audit">View on GitHub</a>
+          </div>
+          <div class="platforms" aria-label="Supported platforms">
+            <span>GA4</span><span>Google Tag Manager</span><span>Server-side GTM</span><span>Google Ads</span><span>Meta Pixel</span><span>TikTok</span><span>LinkedIn</span><span>Pinterest</span><span>Snapchat</span><span>X</span><span>Microsoft Ads</span><span>Reddit</span><span>Clarity</span><span>Hotjar</span>
+          </div>
+        </div>
+        <div class="hero-shot">
+          <img src="assets/report-top.png" alt="Branded tracking audit report with a score of 44 and critical findings">
+          <img class="panel" src="assets/panel-audit.png" alt="Side panel showing the audit score, detected platforms and consent state">
+        </div>
+      </div>
+    </section>
+
+    <section class="alt">
+      <div class="wrap">
+        <h2>Stop juggling five debuggers and a screenshot folder</h2>
+        <p class="sub">Every free tool covers one vendor or shows raw requests. None of them tell you what is wrong, why it matters, or give you something to send the client.</p>
+        <div class="pain">
+          <div><b>One vendor per tool</b><p>Tag Assistant ignores Meta. Pixel Helper ignores Google. You open four extensions to check one checkout.</p></div>
+          <div><b>The log vanishes on redirect</b><p>Click "Buy now" and the thank-you redirect wipes the popup before you see whether Purchase fired.</p></div>
+          <div><b>No proof for the client</b><p>Two hours of screenshots pasted into a Google Doc to convince a prospect their tracking is broken.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>Everything the debuggers do, plus the audit they don't</h2>
+        <p class="sub">The useful parts of the best free tools in one side panel that stays open while you click through the site, with automated checks and reporting on top.</p>
+        <div class="features">
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div><h3>One-click audit with a score</h3><p>50+ opinionated rules across every vendor, scored out of 100, each with a plain-English "how to fix". Built to avoid false alarms, e.g. it recognises CMP templates that never touch the dataLayer.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/></svg></div><h3>Consent stress test <span class="tag-new">Only here</span></h3><p>Clicks "Accept all" or "Reject all" on the banner (OneTrust, Cookiebot, Usercentrics, Didomi, Complianz and generic buttons) and diffs every tag before vs after.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></div><h3>Consent Mode v2, decoded</h3><p>Reads gcs and gcd from the hits Google actually received, Google's runtime consent state, and the dataLayer, then flags v1-only setups, late defaults and missing updates.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M12 4v16"/></svg></div><h3>Pixels that ignore consent <span class="tag-new">Only here</span></h3><p>Consent Mode only governs Google tags. We flag Meta, TikTok, LinkedIn, Pinterest, Snap, X, Reddit and Microsoft Ads firing while ad consent is denied, plus tracking cookies set without consent.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h11l2-8H6.5"/></svg></div><h3>Ecommerce validation, every vendor</h3><p>GA4 items, transaction_id, value and currency; Meta and TikTok value, currency and content_ids; duplicate purchases; "$49.90" strings that silently drop revenue.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10H7z"/><path d="M3 12h4M17 12h4"/></svg></div><h3>Cross-platform consistency <span class="tag-new">Only here</span></h3><p>Same order, different revenue? We compare purchase value and currency across GA4, Meta and TikTok and flag mismatches before the client's CFO does.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></div><h3>PII leak detection</h3><p>Emails in URLs and event parameters, and unhashed Meta advanced matching, across all vendors. Only the parameter name is stored, never the value.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><h3>Live dataLayer timeline</h3><p>Every push in order, including those before GTM loads. Catches <code>dataLayer = []</code> overwrites and ecommerce objects that bleed into the next event.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div><h3>Request inspector</h3><p>Decoded parameters with readable names, GA4 item strings parsed, filter by vendor, full-text search, CSV/JSON export. GA4 batches and sendBeacon pings captured.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><h3>Funnel mode that survives redirects</h3><p>Preserve the log across pages, walk product → cart → checkout → thank-you, and audit the whole session as one funnel.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div><h3>Multi-page scan</h3><p>Paste URLs or grab every link on the page. Each page is opened as a fresh, non-consented visitor (optional cookie wipe) and rolled into one site report.</p></div>
+          <div class="feature"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg></div><h3>Monitoring &amp; alerts <span class="tag-new">Pro</span></h3><p>Re-scan client sites daily or weekly. Get a desktop alert when a new issue appears or the score drops, e.g. after a theme update kills the purchase pixel.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt">
+      <div class="wrap">
+        <h2>Built for clicking through a site, not reading DevTools</h2>
+        <p class="sub">The side panel stays open while you test buttons and forms, and doesn't squash the page into a mobile layout like docked DevTools.</p>
+        <div class="showcase">
+          <figure><img src="assets/panel-audit.png" alt="Audit tab with score, platforms, consent state and consent test results" loading="lazy"><figcaption><b>Audit</b>Score, detected tags, consent state and the before/after consent test.</figcaption></figure>
+          <figure><img src="assets/panel-requests.png" alt="Requests tab with an expanded GA4 purchase hit showing decoded parameters" loading="lazy"><figcaption><b>Requests</b>Every hit across page loads, decoded into readable parameter names.</figcaption></figure>
+          <figure><img src="assets/panel-datalayer.png" alt="dataLayer tab showing pushes in order and an overwrite warning" loading="lazy"><figcaption><b>dataLayer</b>Every push in order, with overwrite and ecommerce-bleed warnings.</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="report">
+      <div class="wrap report-wrap">
+        <div>
+          <h2>The client report is the product</h2>
+          <p class="sub" style="margin-bottom:24px">Turn an audit into a deliverable in one click: a white-label PDF that explains the problem, the business impact and the fix in plain English.</p>
+          <ul class="checks">
+            <li>Your logo, brand colour, contact line and "Prepared for" client name</li>
+            <li>Health score, executive summary and prioritised findings with fixes</li>
+            <li>Consent banner test table: what fired before vs after accept/reject</li>
+            <li>"Changes since last audit": resolved vs new issues, to prove your work</li>
+            <li>Editable analyst notes, printed only when filled in</li>
+            <li>Call-to-action button ("Book a fix call") that turns every audit into a lead</li>
+            <li>Also exports CSV, JSON and a copy-paste summary for Slack or email</li>
+          </ul>
+        </div>
+        <img src="assets/report-full.png" alt="Full multi-page audit report" loading="lazy">
+      </div>
+    </section>
+
+    <section id="compare" class="alt">
+      <div class="wrap">
+        <h2>How it compares</h2>
+        <p class="sub">Based on each tool's public Chrome Web Store listing and documentation, checked October 2026. Where the others are stronger, we say so.</p>
+        <div class="table-wrap">
+          <table class="cmp">
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th class="us">Tracking QA</th>
+                <th>Tag Assistant<br><span class="q">3M users · 3.4★</span></th>
+                <th>Meta Pixel Helper<br><span class="q">~3M · 2.1★</span></th>
+                <th>TikTok Pixel Helper<br><span class="q">~600K · 3.1★</span></th>
+                <th>Omnibug<br><span class="q">200K · 4.2★</span></th>
+                <th>Analytics Debugger<br><span class="q">100K · 4.5★</span></th>
+                <th>Consent Mode Inspector<br><span class="q">20K · 4.9★</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="group"><td colspan="8">Coverage</td></tr>
+              <tr><td>Google + Meta + TikTok in one tool</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="p">◐</td><td class="n">✗</td></tr>
+              <tr><td>LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="q">?</td><td class="n">✗</td></tr>
+              <tr><td>Adobe, Tealium, Snowplow &amp; other analytics suites</td><td class="us n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+              <tr class="group"><td colspan="8">Consent</td></tr>
+              <tr><td>Consent Mode v2 decoding (gcs / gcd)</td><td class="us y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td></tr>
+              <tr><td>Non-Google pixels checked against consent</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>Automated accept / reject banner test</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr class="group"><td colspan="8">Validation</td></tr>
+              <tr><td>Ecommerce parameter checks</td><td class="us y">✓ all vendors</td><td class="n">✗</td><td class="p">◐ Meta</td><td class="p">◐ TikTok</td><td class="n">✗</td><td class="q">?</td><td class="n">✗</td></tr>
+              <tr><td>Cross-platform purchase value check</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>PII leak detection</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="p">◐</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>dataLayer timeline</td><td class="us y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="p">◐</td></tr>
+              <tr class="group"><td colspan="8">Workflow</td></tr>
+              <tr><td>Log survives redirects / page changes</td><td class="us y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="q">?</td><td class="q">?</td><td class="y">✓</td><td class="p">◐</td></tr>
+              <tr><td>Multi-page scan</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>Scheduled monitoring &amp; alerts</td><td class="us y">✓ Pro</td><td class="n">✗</td><td class="p">◐</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>GTM Preview integration</td><td class="us n">✗</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="n">✗</td></tr>
+              <tr class="group"><td colspan="8">Reporting</td></tr>
+              <tr><td>Branded client report (PDF)</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>Before/after comparison between audits</td><td class="us y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+              <tr><td>Export</td><td class="us y">PDF · CSV · JSON</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">CSV</td><td class="y">✓</td><td class="n">✗</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="legend">✓ supported · ◐ partial or single-vendor · ✗ not offered · ? not verifiable from public docs. Users and ratings from Chrome Web Store listings, October 2026. Use Tag Assistant or Analytics Debugger alongside this for GTM Preview sessions.</p>
+      </div>
+    </section>
+
+    <section id="checks">
+      <div class="wrap">
+        <h2>Every check, in plain English</h2>
+        <p class="sub">Each finding comes with why it matters and how to fix it. Critical issues cost 15 points, warnings 6.</p>
+        <div class="rules">
+          <details class="rule-group" open><summary>Consent &amp; privacy</summary><ul>
+            <li><span class="sev c">critical</span>Consent Mode not implemented</li>
+            <li><span class="sev c">critical</span>Consent Mode v1 only (ad_user_data / ad_personalization missing)</li>
+            <li><span class="sev c">critical</span>Consent default set too late, or update sent without default</li>
+            <li><span class="sev c">critical</span>Accepting cookies doesn't update Google consent</li>
+            <li><span class="sev c">critical</span>Pixels fire, or Google consent is granted, after "reject all"</li>
+            <li><span class="sev c">critical</span>Meta / TikTok / LinkedIn / Pinterest / Snap / X / Reddit / Microsoft Ads firing while ad consent is denied</li>
+            <li><span class="sev c">critical</span>Tracking cookies present while consent is denied</li>
+            <li><span class="sev w">warning</span>ad_storage defaults to granted with a CMP present</li>
+            <li><span class="sev w">warning</span>Session recorders (Clarity, Hotjar) load without analytics consent</li>
+            <li><span class="sev c">critical</span>Email addresses or unhashed advanced matching sent to any vendor</li>
+          </ul></details>
+          <details class="rule-group" open><summary>Data accuracy</summary><ul>
+            <li><span class="sev c">critical</span>Duplicate page views (GA4, Meta, TikTok, Snap, Reddit, X, Microsoft Ads, Pinterest)</li>
+            <li><span class="sev c">critical</span>dataLayer overwritten after GTM loaded</li>
+            <li><span class="sev w">warning</span>ecommerce object not cleared between pushes</li>
+            <li><span class="sev w">warning</span>Tag library loads but never sends a hit</li>
+            <li><span class="sev w">warning</span>Tags still silent after full consent</li>
+            <li><span class="sev w">warning</span>Purchase value differs between GA4, Meta and TikTok</li>
+            <li>Multiple GTM containers or GA4 properties · server-side GTM detected</li>
+          </ul></details>
+          <details class="rule-group"><summary>GA4 ecommerce &amp; naming</summary><ul>
+            <li><span class="sev c">critical</span>purchase without transaction_id, value, currency or items</li>
+            <li><span class="sev c">critical</span>Same purchase sent more than once</li>
+            <li><span class="sev c">critical</span>value is not a number</li>
+            <li><span class="sev w">warning</span>Items missing item_id and item_name · price not numeric</li>
+            <li><span class="sev w">warning</span>Currency not ISO 4217</li>
+            <li><span class="sev w">warning</span>Event names over 40 chars, invalid characters, or reserved</li>
+            <li><span class="sev w">warning</span>More than 25 parameters · parameter names over 40 chars</li>
+          </ul></details>
+          <details class="rule-group"><summary>Meta Pixel</summary><ul>
+            <li><span class="sev c">critical</span>Purchase missing value or currency</li>
+            <li><span class="sev w">warning</span>Standard event with the wrong case ("purchase" vs "Purchase")</li>
+            <li><span class="sev w">warning</span>Event activated multiple times on one page</li>
+            <li><span class="sev w">warning</span>Catalog events without content_ids</li>
+            <li><span class="sev w">warning</span>Value not numeric · currency not ISO 4217</li>
+            <li>Conversions without event_id (CAPI dedup) · double-encoded parameters</li>
+          </ul></details>
+          <details class="rule-group"><summary>TikTok Pixel</summary><ul>
+            <li><span class="sev c">critical</span>Purchase events missing value or currency</li>
+            <li><span class="sev w">warning</span>Product events without content_id</li>
+            <li><span class="sev w">warning</span>content_type not "product" / "product_group"</li>
+            <li><span class="sev w">warning</span>Malformed advanced-matching email · phone not E.164</li>
+            <li>Purchase without event_id (Events API dedup)</li>
+          </ul></details>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing" class="alt">
+      <div class="wrap">
+        <h2>Pricing</h2>
+        <p class="sub">Every check is free. Pay when you want to put your name on the report and stop re-checking sites by hand.</p>
+        <div class="pricing">
+          <div class="plan">
+            <h3>Free</h3>
+            <div class="price">$0</div>
+            <ul>
+              <li>All 50+ checks and the consent stress test</li>
+              <li>Request inspector, dataLayer timeline, funnel mode</li>
+              <li>Client report (with Tracking QA watermark)</li>
+              <li>Multi-page scans up to 3 pages</li>
+              <li>Last 5 audits saved</li>
+            </ul>
+          </div>
+          <div class="plan pro">
+            <h3>Pro</h3>
+            <div class="price">$15<small>/month</small></div>
+            <ul>
+              <li>White-label reports: your logo, colours, CTA, no watermark</li>
+              <li>Multi-page scans up to 50 pages</li>
+              <li>Scheduled monitoring with desktop alerts</li>
+              <li>500 saved audits with before/after comparison</li>
+              <li>Everything in Free</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Your clients' data never leaves your browser</h2>
+        <p class="sub">No account, no server, no analytics in the extension itself.</p>
+        <div class="privacy">
+          <div><b>Local only</b><p>Audits, branding and history live in Chrome's local extension storage.</p></div>
+          <div><b>PII-safe reports</b><p>When personal data is found, only the parameter name is recorded, never the value.</p></div>
+          <div><b>Open source</b><p>Every rule is readable in <code>src/checks.js</code> and <code>src/validators.js</code>.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="alt faq">
+      <div class="wrap">
+        <h2>FAQ</h2>
+        <details><summary>Does it see server-side tracking like Meta CAPI or GA4 Measurement Protocol?</summary><p>No browser extension can: those events go from the client's server, not the browser. We detect first-party server-side GTM endpoints, flag missing event_id for CAPI deduplication, and say clearly in the report that server-side events are out of scope.</p></details>
+        <details><summary>How is this different from Tag Assistant or Meta Pixel Helper?</summary><p>Those show you one vendor's tags. Tracking QA checks all vendors together against rules, including cross-vendor problems (pixels ignoring consent, purchase values that disagree), and produces a report you can send.</p></details>
+        <details><summary>Will the consent test click buttons on my client's live site?</summary><p>Only when you turn it on. It clicks the CMP's own "accept all" or "reject all", exactly like a visitor would, in your browser. Nothing is changed on the site.</p></details>
+        <details><summary>What does "Fresh visitor" do?</summary><p>Before scanning it clears cookies and storage for the scanned site only, so you see what a first-time EEA visitor sees. It logs you out of that site, so it's off by default and asks for permission first.</p></details>
+        <details><summary>Why does it need access to all websites?</summary><p>To see tracking requests on whatever site you audit. Only requests to known tracking endpoints are read; everything else is ignored. See the <a href="https://github.com/shadabkhansir/Tracking-QA-client-audit/blob/main/PRIVACY.md">privacy policy</a>.</p></details>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="wrap">
+        <h2>Install</h2>
+        <div class="install">
+          <p style="margin-top:0">Chrome Web Store listing coming soon. Until then, install from source in under a minute:</p>
+          <ol>
+            <li>Download the <a href="https://github.com/shadabkhansir/Tracking-QA-client-audit/archive/refs/heads/main.zip">latest ZIP</a> and unzip it.</li>
+            <li>Open <code>chrome://extensions</code> and switch on <b>Developer mode</b>.</li>
+            <li>Click <b>Load unpacked</b> and choose the unzipped folder.</li>
+            <li>Pin Tracking QA and click its icon to open the side panel.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Tracking QA &amp; Client Audit · Not affiliated with Google, Meta or TikTok.</span>
+      <span><a href="https://github.com/shadabkhansir/Tracking-QA-client-audit">GitHub</a> · <a href="https://github.com/shadabkhansir/Tracking-QA-client-audit/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/shadabkhansir/Tracking-QA-client-audit/blob/main/docs/competitive-analysis.md">Competitive analysis</a></span>
+    </div>
+  </footer>
+</body>
+</html>
