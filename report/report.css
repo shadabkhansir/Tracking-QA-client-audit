@@ -1,0 +1,48 @@
+:root { --brand: #2f5bea; --fg: #16181d; --muted: #6b7280; --line: #e5e7eb; --card: #f7f8fa;
+  --critical: #c4271b; --warning: #a86600; --info: #4b5563; --pass: #11804a; }
+* { box-sizing: border-box; }
+html { background: #eceef2; }
+body { margin: 0; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); }
+.toolbar { position: sticky; top: 0; display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); z-index: 1; }
+.toolbar button { font: inherit; font-weight: 600; background: var(--brand); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+.sheet { max-width: 820px; margin: 24px auto; background: #fff; padding: 40px 48px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.muted { color: var(--muted); }
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 3px solid var(--brand); padding-bottom: 16px; }
+.head img { max-height: 48px; max-width: 200px; }
+.agency { font-weight: 700; font-size: 16px; color: var(--brand); }
+.head .meta { text-align: right; font-size: 12px; color: var(--muted); }
+h1 { font-size: 24px; margin: 24px 0 4px; }
+h2 { font-size: 15px; margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); color: var(--brand); }
+.site { font-size: 14px; color: var(--muted); word-break: break-all; }
+.summary { display: grid; grid-template-columns: 150px 1fr; gap: 24px; align-items: center; margin-top: 20px; }
+.dial { width: 140px; height: 140px; border-radius: 50%; display: grid; place-items: center; }
+.dial .inner { width: 112px; height: 112px; border-radius: 50%; background: #fff; display: grid; place-items: center; text-align: center; }
+.dial .num { font-size: 36px; font-weight: 750; line-height: 1; }
+.dial .lbl { font-size: 11px; color: var(--muted); }
+.tally { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.tally div { background: var(--card); border-radius: 6px; padding: 8px 12px; min-width: 88px; }
+.tally b { display: block; font-size: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+td.mono { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+.finding { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 0 6px 6px 0; padding: 10px 12px; margin: 10px 0; break-inside: avoid; }
+.finding.critical { border-left-color: var(--critical); } .finding.warning { border-left-color: var(--warning); }
+.finding.info { border-left-color: var(--info); } .finding.pass { border-left-color: var(--pass); }
+.finding .t { font-weight: 650; display: flex; justify-content: space-between; gap: 8px; }
+.sev { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.sev.critical { color: var(--critical); } .sev.warning { color: var(--warning); } .sev.info { color: var(--info); } .sev.pass { color: var(--pass); }
+.finding .fix { margin-top: 6px; background: var(--card); padding: 6px 8px; border-radius: 4px; }
+.finding .pages { margin-top: 6px; font-size: 11px; color: var(--muted); word-break: break-all; }
+.passes { columns: 2; padding-left: 18px; } .passes li { color: var(--pass); } .passes li span { color: var(--fg); }
+.g { color: var(--pass); } .d { color: var(--warning); } .u { color: var(--muted); }
+.foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 16px; }
+.watermark { color: var(--brand); font-weight: 600; }
+@media print {
+  html { background: #fff; }
+  .no-print { display: none !important; }
+  .sheet { margin: 0; padding: 0; box-shadow: none; max-width: none; }
+  h2 { break-after: avoid; }
+  @page { margin: 16mm 14mm; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

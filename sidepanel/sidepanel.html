@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracking QA</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">Tracking QA <span id="plan-badge" class="badge"></span></div>
+    <a href="#" id="open-options" class="link">Settings</a>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="live" aria-selected="true">Live</button>
+    <button role="tab" data-tab="scan" aria-selected="false">Multi-page scan</button>
+    <button role="tab" data-tab="history" aria-selected="false">History</button>
+  </nav>
+
+  <section id="tab-live" class="tab-panel">
+    <div class="page-url" id="page-url">—</div>
+    <div class="row">
+      <button id="run-audit" class="primary">Run audit</button>
+      <button id="reload-page" class="secondary" title="Reload to capture tags from the start">Reload &amp; capture</button>
+    </div>
+    <div id="audit-result" hidden>
+      <div class="score-row">
+        <div class="score" id="score">—</div>
+        <div class="counts" id="counts"></div>
+      </div>
+      <div id="platforms" class="platforms"></div>
+      <div id="consent" class="consent"></div>
+      <ul id="findings" class="findings"></ul>
+      <div class="row">
+        <button id="save-report" class="primary">Save &amp; open client report</button>
+      </div>
+    </div>
+    <h3>Live requests <span id="hit-count" class="muted"></span></h3>
+    <p class="muted small" id="live-hint">Reload the page with this panel open to capture tags that fire on load.</p>
+    <ul id="hits" class="hits"></ul>
+  </section>
+
+  <section id="tab-scan" class="tab-panel" hidden>
+    <p class="small">Open each URL in a background tab, wait for tags to settle, and audit it. Pages are scanned in their <strong>pre-consent</strong> state, which is what EEA regulators check.</p>
+    <label for="scan-urls" class="small">URLs (one per line)</label>
+    <textarea id="scan-urls" rows="8" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
+    <div class="row">
+      <button id="use-links" class="secondary">Use links from this page</button>
+      <button id="start-scan" class="primary">Start scan</button>
+    </div>
+    <p class="muted small" id="scan-limit"></p>
+    <div id="scan-progress" class="progress" hidden><div class="bar"></div><span class="small" id="scan-status"></span></div>
+  </section>
+
+  <section id="tab-history" class="tab-panel" hidden>
+    <ul id="history" class="history"></ul>
+    <p class="muted small" id="history-limit"></p>
+  </section>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

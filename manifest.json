@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Tracking QA & Client Audit",
+  "short_name": "Tracking QA",
+  "version": "0.1.0",
+  "description": "GA4, GTM, Meta Pixel, TikTok Pixel and Consent Mode v2 checks in one panel, with branded client audit reports.",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel", "storage", "scripting", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "src/background.js", "type": "module" },
+  "side_panel": { "default_path": "sidepanel/sidepanel.html" },
+  "options_page": "options/options.html",
+  "action": {
+    "default_title": "Open Tracking QA",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}
