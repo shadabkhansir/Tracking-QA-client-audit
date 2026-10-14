@@ -2,7 +2,7 @@ import { getBrand, setBrand } from '../src/storage.js';
 import { getPlan, setPlan, LIMITS } from '../src/plan.js';
 
 const $ = id => document.getElementById(id);
-const FIELDS = ['agencyName', 'contact', 'preparedFor', 'brandColor'];
+const FIELDS = ['agencyName', 'contact', 'preparedFor', 'brandColor', 'ctaText', 'ctaUrl'];
 const MAX_LOGO_BYTES = 300 * 1024;
 let logoDataUrl = '';
 

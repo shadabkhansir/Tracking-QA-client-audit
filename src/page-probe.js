@@ -6,6 +6,7 @@ export function pageProbe(options = {}) {
     if (typeof v === 'function') return '[fn]';
     if (v === null || typeof v !== 'object') return v;
     if (d > MAX_DEPTH) return '[…]';
+    if (v instanceof Date) return v.toISOString();
     if (typeof Node !== 'undefined' && v instanceof Node) return '[node]';
     if (typeof Window !== 'undefined' && v instanceof Window) return '[window]';
     const isArgs = Object.prototype.toString.call(v) === '[object Arguments]';
@@ -80,8 +81,12 @@ export function pageProbe(options = {}) {
     }
   }
 
+  // Names only, never values.
+  const cookieNames = safe(() => document.cookie.split(';').map(c => c.split('=')[0].trim()).filter(Boolean)) || [];
+
   return {
     url: location.href,
+    cookieNames,
     title: document.title,
     hasGtag: typeof w.gtag === 'function',
     dataLayer,
@@ -92,4 +97,63 @@ export function pageProbe(options = {}) {
     cmps,
     links,
   };
+}
+
+// Injected into the MAIN world to click "accept all" on the consent banner.
+// Prefers each CMP's own JS API; falls back to known button selectors, then to button text.
+export function acceptConsent() {
+  const w = window;
+  const tryApi = [
+    ['OneTrust', () => w.OneTrust && typeof w.OneTrust.AllowAll === 'function' && (w.OneTrust.AllowAll(), true)],
+    ['Cookiebot', () => w.Cookiebot && typeof w.Cookiebot.submitCustomConsent === 'function' && (w.Cookiebot.submitCustomConsent(true, true, true), true)],
+    ['Usercentrics', () => w.UC_UI && typeof w.UC_UI.acceptAllConsents === 'function' && (w.UC_UI.acceptAllConsents(), true)],
+    ['Didomi', () => w.Didomi && typeof w.Didomi.setUserAgreeToAll === 'function' && (w.Didomi.setUserAgreeToAll(), true)],
+    ['Complianz', () => typeof w.cmplz_set_consent === 'function' && (['marketing', 'statistics', 'preferences'].forEach(c => w.cmplz_set_consent(c, 'allow')), true)],
+  ];
+  for (const [name, fn] of tryApi) {
+    try { if (fn()) return { accepted: true, method: `${name} API` }; } catch { /* try next */ }
+  }
+  const selectors = ['#onetrust-accept-btn-handler', '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll', '#CybotCookiebotDialogBodyButtonAccept',
+    '[data-testid="uc-accept-all-button"]', '.cky-btn-accept', '#didomi-notice-agree-button', '.iubenda-cs-accept-btn', '.cmplz-accept',
+    '#truste-consent-button', '.qc-cmp2-summary-buttons button[mode="primary"]', '#accept-recommended-btn-handler', '[data-cookiefirst-action="accept"]',
+    '.cc-allow', '.cookie-notice-accept', '#cookie_action_close_header', '[data-tid="banner-accept"]'];
+  const visible = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (visible(el)) { el.click(); return { accepted: true, method: `button ${sel}` }; }
+  }
+  const words = /^(accept( all)?( cookies)?|allow( all)?( cookies)?|agree( to all)?|i agree|ok(ay)?, ?got it|got it|alle akzeptieren|akzeptieren|tout accepter|accepter|aceptar( todo)?|accetta( tutto)?|aceitar)$/i;
+  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]')) {
+    const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
+    if (text.length < 40 && words.test(text) && visible(el)) { el.click(); return { accepted: true, method: `button "${text}"` }; }
+  }
+  return { accepted: false, reason: 'No supported consent platform API or accept button was found on the page.' };
+}
+
+// Injected into the MAIN world to click "reject all" on the consent banner.
+export function rejectConsent() {
+  const w = window;
+  const tryApi = [
+    ['OneTrust', () => w.OneTrust && typeof w.OneTrust.RejectAll === 'function' && (w.OneTrust.RejectAll(), true)],
+    ['Cookiebot', () => w.Cookiebot && typeof w.Cookiebot.submitCustomConsent === 'function' && (w.Cookiebot.submitCustomConsent(false, false, false), true)],
+    ['Usercentrics', () => w.UC_UI && typeof w.UC_UI.denyAllConsents === 'function' && (w.UC_UI.denyAllConsents(), true)],
+    ['Didomi', () => w.Didomi && typeof w.Didomi.setUserDisagreeToAll === 'function' && (w.Didomi.setUserDisagreeToAll(), true)],
+    ['Complianz', () => typeof w.cmplz_set_consent === 'function' && (['marketing', 'statistics', 'preferences'].forEach(c => w.cmplz_set_consent(c, 'deny')), true)],
+  ];
+  for (const [name, fn] of tryApi) {
+    try { if (fn()) return { accepted: true, method: `${name} API` }; } catch { /* try next */ }
+  }
+  const selectors = ['#onetrust-reject-all-handler', '#CybotCookiebotDialogBodyButtonDecline', '[data-testid="uc-deny-all-button"]', '.cky-btn-reject',
+    '#didomi-notice-disagree-button', '.iubenda-cs-reject-btn', '.cmplz-deny', '[data-cookiefirst-action="reject"]', '.cc-deny', '[data-tid="banner-decline"]'];
+  const visible = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (visible(el)) { el.click(); return { accepted: true, method: `button ${sel}` }; }
+  }
+  const words = /^(reject( all)?( cookies)?|decline( all)?|deny( all)?|refuse( all)?|only (necessary|essential)( cookies)?|necessary only|alle ablehnen|ablehnen|tout refuser|refuser|rechazar( todo)?|rifiuta( tutto)?|rejeitar)$/i;
+  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]')) {
+    const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
+    if (text.length < 40 && words.test(text) && visible(el)) { el.click(); return { accepted: true, method: `button "${text}"` }; }
+  }
+  return { accepted: false, reason: 'No supported consent platform API or reject button was found on the page.' };
 }

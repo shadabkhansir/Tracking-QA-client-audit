@@ -1,4 +1,6 @@
-import { getAudit, getBrand } from '../src/storage.js';
+import { getAudit, getBrand, listAudits, updateAudit } from '../src/storage.js';
+import { diffFindings, findPrevious } from '../src/diff.js';
+import { findingsToCsv, download, summaryText } from '../src/export.js';
 import { getPlan, LIMITS } from '../src/plan.js';
 import { PLATFORM_LABELS } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
@@ -30,6 +32,31 @@ function consentTable(consent) {
   return `<table><thead><tr><th>Signal</th><th>Default</th><th>Update</th><th>Current</th></tr></thead><tbody>
     ${CONSENT_SIGNALS.filter(s => consent.signals[s]).map(s => [s, consent.signals[s]]).map(([s, v]) => `<tr><td class="mono">${esc(s)}</td><td class="${cls(v.default)}">${esc(v.default || '—')}</td><td class="${cls(v.update)}">${esc(v.update || '—')}</td><td class="${cls(v.effective)}"><b>${esc(v.effective)}</b></td></tr>`).join('')}
   </tbody></table><p class="muted">Consent platform: ${esc(consent.cmps?.join(', ') || 'none detected')}</p>`;
+}
+
+function consentTestHtml(t) {
+  if (!t) return '';
+  if (!t.accepted) return `<h2>Consent banner test</h2><p class="muted">${esc(t.reason || 'The consent banner could not be accepted automatically.')}</p>`;
+  const plats = [...new Set([...Object.keys(t.before || {}), ...Object.keys(t.after || {})])];
+  const cls = v => (v === 'granted' ? 'g' : v === 'denied' ? 'd' : 'u');
+  return `<h2>Consent banner test</h2>
+    <p>We clicked "${t.mode === 'reject' ? 'reject all' : 'accept all'}" (${esc(t.method)}) and compared what each platform sent before and after.</p>
+    <table><thead><tr><th>Platform</th><th>Requests before</th><th>Requests after ${t.mode === 'reject' ? 'rejecting' : 'accepting'}</th></tr></thead><tbody>
+      ${plats.map(p => `<tr><td>${esc(PLATFORM_LABELS[p] || p)}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('') || '<tr><td colspan="3">No tracking requests in either state.</td></tr>'}
+    </tbody></table>
+    ${t.signalsAfter ? `<p class="muted" style="margin-top:8px">Google consent afterwards: ${['ad_storage', 'analytics_storage', 'ad_user_data', 'ad_personalization'].map(s => `${s} <b class="${cls(t.signalsAfter[s]?.effective)}">${esc(t.signalsAfter[s]?.effective || 'unset')}</b>`).join(' · ')}</p>` : ''}`;
+}
+
+function changesHtml(previous, findings, score) {
+  if (!previous) return '';
+  const prevFindings = previous.type === 'site' ? previous.site.findings : previous.result.findings;
+  const d = diffFindings(prevFindings, findings);
+  const prevScore = previous.type === 'site' ? previous.site.score : previous.result.score;
+  const list = arr => arr.length ? `<ul>${arr.map(f => `<li>${esc(f.title)}</li>`).join('')}</ul>` : '<p class="muted">None</p>';
+  return `<h2>Changes since ${esc(new Date(previous.createdAt).toLocaleDateString())}</h2>
+    <p>Score: ${prevScore} → <b>${score}</b></p>
+    <div class="changes"><div><h3 class="sev pass">Resolved (${d.resolved.length})</h3>${list(d.resolved)}</div>
+    <div><h3 class="sev critical">New (${d.added.length})</h3>${list(d.added)}</div></div>`;
 }
 
 function platformTable(platforms, isSite, pageCount) {
@@ -69,6 +96,8 @@ async function render() {
   const isSite = audit.type === 'site';
   const data = isSite ? audit.site : audit.result;
   const pageCount = isSite ? audit.pages.length : 1;
+  const previous = findPrevious(await listAudits(), audit);
+  current = { audit, data, isSite, pageCount };
   const consent = isSite ? audit.pages.find(p => p.consent)?.consent : audit.result.consent;
   const date = new Date(audit.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   document.title = `Tracking audit – ${audit.host} – ${new Date(audit.createdAt).toISOString().slice(0, 10)}`;
@@ -76,7 +105,7 @@ async function render() {
   el.innerHTML = `
     <div class="head">
       <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="">` : `<div class="agency">${esc(brand.agencyName || 'Tracking QA')}</div>`}</div>
-      <div class="meta">${brand.preparedFor ? `Prepared for ${esc(brand.preparedFor)}<br>` : ''}${esc(date)}</div>
+      <div class="meta">Prepared for <span id="prepared-for" contenteditable="true">${esc(audit.preparedFor ?? brand.preparedFor ?? '') || 'Client name'}</span><br>${esc(date)}</div>
     </div>
     <h1>Tracking &amp; Consent Audit</h1>
     <div class="site">${esc(audit.host)}${isSite ? ` · ${pageCount} pages scanned` : ` · ${esc(audit.url)}`}</div>
@@ -95,6 +124,11 @@ async function render() {
       </div>
     </div>
 
+    ${changesHtml(previous, data.findings, data.score)}
+
+    <h2>Analyst notes</h2>
+    <div class="notes" id="notes" contenteditable="true" data-placeholder="Click to add notes for your client (saved automatically, hidden in the PDF if empty).">${esc(audit.notes || '')}</div>
+
     <h2>Findings</h2>
     ${findingsHtml(data.findings, isSite, pageCount)}
 
@@ -103,6 +137,10 @@ async function render() {
 
     <h2>Consent Mode status${isSite ? ' (first page)' : ''}</h2>
     ${consentTable(consent)}
+
+    ${consentTestHtml(isSite ? audit.pages.find(p => p.consentTest)?.consentTest : audit.result.consentTest)}
+
+    ${!isSite && audit.result.session ? `<h2>Funnel steps audited</h2><ol class="steps">${audit.result.session.steps.map(u => `<li>${esc(u)}</li>`).join('')}</ol>` : ''}
 
     ${isSite ? `<h2>Pages scanned</h2><table><thead><tr><th>URL</th><th>Score</th><th>Critical</th><th>Warnings</th></tr></thead><tbody>
       ${audit.pages.map(p => `<tr><td class="mono">${esc(p.url)}</td><td>${p.score}</td><td>${p.counts.critical}</td><td>${p.counts.warning}</td></tr>`).join('')}
@@ -113,11 +151,29 @@ async function render() {
 
     <div class="foot">
       <span>${esc(brand.agencyName)}${brand.contact ? ` · ${esc(brand.contact)}` : ''}</span>
+      ${brand.ctaText && LIMITS[plan].customBranding ? `<a class="cta" href="${esc(/^https?:\/\//.test(brand.ctaUrl || '') ? brand.ctaUrl : '#')}">${esc(brand.ctaText)}</a>` : ''}
       ${LIMITS[plan].customBranding ? '' : '<span class="watermark">Generated with Tracking QA</span>'}
     </div>`;
 
   document.getElementById('toolbar-note').textContent = plan === 'pro' ? '' : 'Free plan: upgrade to remove the watermark and add your logo.';
 }
 
+let current = null;
+
+document.addEventListener('focusout', async e => {
+  if (!current) return;
+  if (e.target.id === 'notes') await updateAudit(current.audit.id, { notes: e.target.innerText.trim() });
+  if (e.target.id === 'prepared-for') await updateAudit(current.audit.id, { preparedFor: e.target.innerText.trim() });
+});
+
+const fileBase = () => `tracking-audit-${current.audit.host}-${new Date(current.audit.createdAt).toISOString().slice(0, 10)}`;
 document.getElementById('print').addEventListener('click', () => window.print());
+document.getElementById('csv').addEventListener('click', () => current && download(`${fileBase()}.csv`, findingsToCsv(current.data.findings), 'text/csv'));
+document.getElementById('json').addEventListener('click', () => current && download(`${fileBase()}.json`, JSON.stringify(current.audit, null, 2), 'application/json'));
+document.getElementById('copy').addEventListener('click', async e => {
+  if (!current) return;
+  await navigator.clipboard.writeText(summaryText({ url: current.audit.url, score: current.data.score, findings: current.data.findings, pages: current.isSite ? current.pageCount : null }));
+  e.target.textContent = 'Copied';
+  setTimeout(() => { e.target.textContent = 'Copy summary'; }, 1200);
+});
 render();

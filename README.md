@@ -2,23 +2,75 @@
 
 Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta Pixel, TikTok Pixel and Google Consent Mode v2 on any page, then turns the result into a branded client report.
 
+Landing page: [`docs/index.html`](docs/index.html) (GitHub Pages). Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md).
+
 ## What it does
 
-- **Live panel**: streams tracking requests for the current tab and runs an audit on demand.
-- **Checks** (`src/checks.js`):
-  - Duplicate page views (GA4 `page_view`, Meta `PageView`, TikTok `Pageview`)
-  - Libraries that load but never send hits
-  - Multiple GTM containers / GA4 properties
-  - Consent Mode missing, v1-only (no `ad_user_data` / `ad_personalization`), default set late, `ad_storage` defaulting to granted
-  - Meta/TikTok pixels firing while Google sees `ad_storage = denied` (the CMP isn't gating non-Google tags)
-  - PII in payloads: emails in GA4/TikTok params, unhashed Meta advanced-matching fields. Only the parameter name is recorded, never the value.
-- **Client report**: score, summary for the client, fixes in priority order, platforms, consent table. Saved as PDF through Chrome's print dialog.
-- **Multi-page scan**: opens URLs in background tabs (pre-consent state), then aggregates findings with the pages each one affects.
-- **History**: saved audits per site in `chrome.storage.local`.
+- **Audit tab**: one-click audit with a 0–100 score, the platforms detected, Consent Mode state, and fixes for each finding.
+- **Consent stress test**: clicks "Accept all" or "Reject all" on the banner (OneTrust, Cookiebot, Usercentrics, Didomi, Complianz, or a generic button) and compares tag behaviour before and after.
+- **Requests tab**:
+  - every tracking hit with decoded parameter names and GA4 item strings parsed
+  - filter by vendor, search, CSV/JSON export
+  - log can be preserved across redirects
+  - toolbar badge count
+- **dataLayer tab**: every push in order, captured from `document_start`, so it survives GTM replacing `push()`. Flags `dataLayer = []` overwrites.
+- **Funnel mode**: audits a whole preserved session (product → cart → checkout → thank-you).
+- **Multi-page scan**: background tabs as a first-time visitor who hasn't consented. Optional "fresh visitor" mode clears that site's cookies first; it uses the optional `browsingData` permission.
+- **Monitoring (Pro)**: daily or weekly re-scans through `chrome.alarms`, with a desktop notification when new issues appear or the score drops.
+- **Client report**:
+  - branded and print-to-PDF
+  - executive summary, findings with fixes
+  - consent test table, "changes since last audit", funnel steps
+  - editable analyst notes and "Prepared for"
+  - call-to-action button
+  - CSV/JSON/summary export
+- **Pop-out window** pinned to a tab.
+
+### Platforms
+GA4 (including first-party server-side GTM endpoints), GTM, gtag, Google Ads, Floodlight, Meta, TikTok, LinkedIn, Pinterest, Snapchat, X, Microsoft Ads (UET), Reddit, Microsoft Clarity, Hotjar.
+
+### Checks (`src/checks.js`, `src/validators.js`)
+- **Consent:**
+  - Consent Mode missing, v1-only, or default set late
+  - accept doesn't update Google consent
+  - pixels fire, or Google consent is granted, after reject
+  - non-Google pixels or tracking cookies present while consent is denied
+  - session recorders load without consent
+- **Accuracy:**
+  - duplicate page views across 8 vendors
+  - tag libraries that load but stay silent
+  - dataLayer overwritten
+  - ecommerce object not cleared between pushes
+  - purchase value differs between GA4, Meta and TikTok
+- **GA4:**
+  - purchase missing transaction_id, value, currency or items
+  - duplicate purchases
+  - non-numeric value or price
+  - currency not ISO 4217
+  - event and parameter naming limits, reserved names
+- **Meta:**
+  - Purchase missing value or currency
+  - standard event with the wrong case
+  - same event activated more than once
+  - missing content_ids
+  - missing event_id (CAPI dedup)
+  - double-encoded parameters
+- **TikTok:**
+  - purchase missing value or currency
+  - missing content_id
+  - invalid content_type
+  - malformed email or phone (E.164)
+  - missing event_id
+- **PII:** email addresses in any vendor's payload; unhashed Meta advanced matching. Only the parameter name is stored, never the value.
 
 ### Where consent state comes from
 
-In priority order: Google's runtime state (`google_tag_data.ics`), then `gcs`/`gcd` on Google hits, then `gtag('consent', …)` commands in `dataLayer`. CMP templates in GTM set defaults through `setDefaultConsentState` and never write to `dataLayer`. Reading only `dataLayer` would wrongly flag those sites as missing a default.
+In priority order:
+1. Google's runtime state (`google_tag_data.ics`).
+2. `gcs`/`gcd` on Google hits.
+3. `gtag('consent', …)` commands from the live dataLayer log.
+
+That log survives a page overwriting `window.dataLayer`. CMP templates in GTM set defaults through `setDefaultConsentState` and never touch `dataLayer`, so reading only `dataLayer` would wrongly flag those sites.
 
 ## Free vs Pro
 
@@ -28,6 +80,7 @@ In priority order: Google's runtime state (`google_tag_data.ics`), then `gcs`/`g
 | Client report | Watermarked, default branding | Your logo, colour, contact, no watermark |
 | Pages per scan | 3 | 50 |
 | Saved audits | 5 | 500 |
+| Scheduled monitoring + alerts | – | ✓ |
 
 Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
 
@@ -44,12 +97,18 @@ Load it: `chrome://extensions` → Developer mode → *Load unpacked* → select
 
 ```
 manifest.json
-src/background.js   service worker: webRequest capture, per-tab state, audits, scans
-src/detectors.js    URL/body → hits (GA4, GTM, gtag, Google Ads, Meta, TikTok), gcs/gcd parsing
-src/page-probe.js   injected into the page's MAIN world: dataLayer, consent state, fbq, ttq, CMPs, links
-src/checks.js       rules engine, scoring, multi-page aggregation
-src/storage.js      history + branding
+src/background.js   service worker: webRequest capture, per-tab state, audits, consent test, scans, monitors
+src/detectors.js    URL/body → hits for 15 platforms, gcs/gcd parsing
+src/params.js       readable parameter names, GA4 item parsing, ecommerce normalisation
+src/page-probe.js   MAIN-world probe (dataLayer, consent state, pixels, CMPs, cookie names) + accept/reject banner
+src/content/        dataLayer hook (MAIN world, document_start) + relay (isolated world)
+src/checks.js       core rules, consent test findings, scoring, multi-page aggregation
+src/validators.js   ecommerce, naming, dedup, dataLayer, cookies, cross-platform rules
+src/diff.js         before/after comparison between audits
+src/export.js       CSV / summary exports
+src/storage.js      history, branding, settings, monitors
 src/plan.js         free/pro limits
+docs/               GitHub Pages landing page + competitive analysis
 sidepanel/          live UI
 report/             printable client report
 options/            branding + plan

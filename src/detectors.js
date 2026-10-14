@@ -133,6 +133,69 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
     }
   }
 
+  return classifyOtherPixels(u, qs, body, url);
+}
+
+function formOrJson(body) {
+  if (typeof body !== 'string' || !body) return {};
+  const json = tryJson(body);
+  if (json) return flattenForScan(json);
+  return body.includes('=') ? Object.fromEntries(new URLSearchParams(body)) : {};
+}
+
+function hit(platform, id, event, params, url, consent = null) {
+  return { platform, kind: 'hit', id: id ? String(id) : null, event: event || null, params, consent, url };
+}
+
+// LinkedIn, Pinterest, Snapchat, X, Microsoft UET, Reddit, plus session-recording tools.
+function classifyOtherPixels(u, qs, body, url) {
+  const host = u.hostname;
+  const path = u.pathname;
+
+  if (host === 'snap.licdn.com' && /insight\.min\.js$/.test(path)) return [scriptHit('linkedin', null, url)];
+  if (host === 'px.ads.linkedin.com' && /^\/(collect|wa)/.test(path)) {
+    const params = { ...qs, ...formOrJson(body) };
+    return [hit('linkedin', params.pid, params.conversionId ? 'conversion' : 'pageview', params, url)];
+  }
+
+  if (host === 's.pinimg.com' && /\/ct\/core\.js$/.test(path)) return [scriptHit('pinterest', null, url)];
+  if (host === 'ct.pinterest.com' && /^\/(v3|user)\/?/.test(path)) {
+    const params = { ...qs, ...formOrJson(body) };
+    if (typeof params.ed === 'string') Object.assign(params, flattenForScan(tryJson(params.ed) || {}, 'ed'));
+    return [hit('pinterest', params.tid, params.event, params, url)];
+  }
+
+  if (host === 'sc-static.net' && /scevent\.min\.js$/.test(path)) return [scriptHit('snapchat', null, url)];
+  if (/^tr(-shadow)?\.snapchat\.com$/.test(host) && /^\/(p|cm\/)/.test(path)) {
+    const params = { ...qs, ...formOrJson(body) };
+    if (!params.pid && !params.ev) return [];
+    return [hit('snapchat', params.pid, params.ev, params, url)];
+  }
+
+  if (host === 'static.ads-twitter.com' && /uwt\.js$/.test(path)) return [scriptHit('x', null, url)];
+  if ((host === 'analytics.twitter.com' || host === 't.co') && /\/i\/adsct/.test(path)) {
+    let event = qs.event || null;
+    const parsed = tryJson(qs.events || '');
+    if (Array.isArray(parsed) && Array.isArray(parsed[0])) event = parsed[0][0];
+    return [hit('x', qs.txn_id || qs.p_id, event || 'pageview', qs, url)];
+  }
+
+  if (host === 'bat.bing.com') {
+    if (/\/bat\.js$/.test(path)) return [scriptHit('uet', null, url)];
+    if (/^\/action\//.test(path)) {
+      const consent = qs.asc ? { uet: qs.asc === 'G' ? 'granted' : qs.asc === 'D' ? 'denied' : 'unset' } : null;
+      return [hit('uet', qs.ti, qs.evt === 'custom' ? (qs.ea || 'custom') : qs.evt, qs, url, consent)];
+    }
+  }
+
+  if (host === 'www.redditstatic.com' && /\/ads\/pixel\.js$/.test(path)) return [scriptHit('reddit', null, url)];
+  if (host === 'alb.reddit.com' && /^\/rp\.gif/.test(path)) return [hit('reddit', qs.id, qs.event, qs, url)];
+
+  const clarity = host === 'www.clarity.ms' && path.match(/^\/tag\/([a-z0-9]+)/i);
+  if (clarity) return [scriptHit('clarity', clarity[1], url)];
+  const hotjar = host === 'static.hotjar.com' && path.match(/hotjar-(\d+)\.js/);
+  if (hotjar) return [scriptHit('hotjar', hotjar[1], url)];
+
   return [];
 }
 
@@ -155,4 +218,17 @@ export const PLATFORM_LABELS = {
   floodlight: 'Floodlight',
   meta: 'Meta Pixel',
   tiktok: 'TikTok Pixel',
+  linkedin: 'LinkedIn Insight Tag',
+  pinterest: 'Pinterest Tag',
+  snapchat: 'Snap Pixel',
+  x: 'X (Twitter) Pixel',
+  uet: 'Microsoft Ads UET',
+  reddit: 'Reddit Pixel',
+  clarity: 'Microsoft Clarity',
+  hotjar: 'Hotjar',
 };
+
+// Non-Google ad pixels: no Consent Mode, so the CMP itself has to gate them.
+export const AD_PIXELS = ['meta', 'tiktok', 'linkedin', 'pinterest', 'snapchat', 'x', 'reddit', 'uet'];
+// Session recorders: should wait for analytics consent.
+export const SESSION_RECORDERS = ['clarity', 'hotjar'];

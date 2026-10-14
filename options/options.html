@@ -22,7 +22,7 @@
   <fieldset>
     <legend>Plan</legend>
     <p>Current plan: <strong id="plan-name">—</strong></p>
-    <p class="hint">Pro ($15/mo): white-label reports (your logo, colours, no watermark), 50-page scans, 500 saved audits.</p>
+    <p class="hint">Pro ($15/mo): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
     <div id="dev-toggle" hidden>
       <label><input type="checkbox" id="dev-pro"> Developer: enable Pro (unpacked installs only)</label>
     </div>
@@ -36,6 +36,10 @@
     <input type="text" id="contact" placeholder="hello@agency.com · agency.com">
     <label for="preparedFor">Default "Prepared for"</label>
     <input type="text" id="preparedFor" placeholder="Client name">
+    <label for="ctaText">Report call-to-action</label>
+    <input type="text" id="ctaText" placeholder="Book a 15-min fix call">
+    <input type="text" id="ctaUrl" placeholder="https://cal.com/your-agency" style="margin-top:6px">
+    <div class="hint">Shown as a button in the report footer. Turns every audit you send into a lead.</div>
     <label for="brandColor">Brand colour</label>
     <input type="color" id="brandColor">
     <label for="logo">Logo</label>

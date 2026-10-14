@@ -9,42 +9,78 @@
 <body>
   <header class="top">
     <div class="brand">Tracking QA <span id="plan-badge" class="badge"></span></div>
-    <a href="#" id="open-options" class="link">Settings</a>
+    <span><a href="#" id="pop-out" class="link" title="Open in a separate window pinned to this tab">Pop out</a> · <a href="#" id="open-options" class="link">Settings</a></span>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="live" aria-selected="true">Live</button>
-    <button role="tab" data-tab="scan" aria-selected="false">Multi-page scan</button>
+    <button role="tab" data-tab="live" aria-selected="true">Audit</button>
+    <button role="tab" data-tab="requests" aria-selected="false">Requests</button>
+    <button role="tab" data-tab="datalayer" aria-selected="false">dataLayer</button>
+    <button role="tab" data-tab="scan" aria-selected="false">Scan</button>
+    <button role="tab" data-tab="monitor" aria-selected="false">Monitor</button>
     <button role="tab" data-tab="history" aria-selected="false">History</button>
   </nav>
 
+  <!-- Audit -->
   <section id="tab-live" class="tab-panel">
     <div class="page-url" id="page-url">—</div>
+    <div class="opts">
+      <label title="Clicks the cookie banner and compares tag behaviour before and after">Consent test: <select id="opt-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+      <label id="opt-session-wrap" title="Audit every page in the preserved log, e.g. product → cart → checkout"><input type="checkbox" id="opt-session"> Whole session / funnel</label>
+    </div>
     <div class="row">
       <button id="run-audit" class="primary">Run audit</button>
       <button id="reload-page" class="secondary" title="Reload to capture tags from the start">Reload &amp; capture</button>
     </div>
+    <p class="muted small" id="live-hint">Tip: click <b>Reload &amp; capture</b> first so tags that fire on page load are recorded.</p>
     <div id="audit-result" hidden>
       <div class="score-row">
         <div class="score" id="score">—</div>
         <div class="counts" id="counts"></div>
       </div>
-      <div id="platforms" class="platforms"></div>
-      <div id="consent" class="consent"></div>
+      <div id="platforms" class="card"></div>
+      <div id="consent" class="card"></div>
+      <div id="consent-test" class="card" hidden></div>
       <ul id="findings" class="findings"></ul>
       <div class="row">
         <button id="save-report" class="primary">Save &amp; open client report</button>
+        <button id="copy-summary" class="secondary">Copy summary</button>
       </div>
     </div>
-    <h3>Live requests <span id="hit-count" class="muted"></span></h3>
-    <p class="muted small" id="live-hint">Reload the page with this panel open to capture tags that fire on load.</p>
+  </section>
+
+  <!-- Requests -->
+  <section id="tab-requests" class="tab-panel" hidden>
+    <div class="row tight">
+      <input type="search" id="hit-search" placeholder="Search events, IDs, parameters…">
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="row tight">
+      <label class="small"><input type="checkbox" id="preserve-log"> Preserve log across pages</label>
+      <span class="spacer"></span>
+      <button class="secondary sm" id="export-csv">CSV</button>
+      <button class="secondary sm" id="export-json">JSON</button>
+      <button class="secondary sm" id="clear-log">Clear</button>
+    </div>
+    <p class="muted small" id="hit-count"></p>
     <ul id="hits" class="hits"></ul>
   </section>
 
+  <!-- dataLayer -->
+  <section id="tab-datalayer" class="tab-panel" hidden>
+    <p class="muted small">Every <code>dataLayer.push</code> on this page, in order, including pushes made before GTM loaded. Click to expand.</p>
+    <ul id="dl" class="dl"></ul>
+  </section>
+
+  <!-- Scan -->
   <section id="tab-scan" class="tab-panel" hidden>
-    <p class="small">Open each URL in a background tab, wait for tags to settle, and audit it. Pages are scanned in their <strong>pre-consent</strong> state, which is what EEA regulators check.</p>
+    <p class="small">Opens each URL in a background tab, waits for tags to settle, then audits it. Pages are checked as a <strong>first-time visitor who hasn't consented yet</strong>.</p>
     <label for="scan-urls" class="small">URLs (one per line)</label>
-    <textarea id="scan-urls" rows="8" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
+    <textarea id="scan-urls" rows="7" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
+    <div class="opts">
+      <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+      <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
+    </div>
     <div class="row">
       <button id="use-links" class="secondary">Use links from this page</button>
       <button id="start-scan" class="primary">Start scan</button>
@@ -53,6 +89,25 @@
     <div id="scan-progress" class="progress" hidden><div class="bar"></div><span class="small" id="scan-status"></span></div>
   </section>
 
+  <!-- Monitor -->
+  <section id="tab-monitor" class="tab-panel" hidden>
+    <p class="small">Re-scan client sites on a schedule and get a desktop alert when tracking breaks or the score drops. <span class="badge pro">Pro</span></p>
+    <div id="monitor-locked" class="card" hidden>Monitoring is a Pro feature. <a href="#" id="monitor-upgrade" class="link">See plans</a></div>
+    <div id="monitor-form">
+      <label for="mon-urls" class="small">URLs to monitor</label>
+      <textarea id="mon-urls" rows="4" placeholder="https://client.com/&#10;https://client.com/checkout/thank-you"></textarea>
+      <div class="row tight">
+        <select id="mon-freq"><option value="daily">Daily</option><option value="weekly" selected>Weekly</option></select>
+        <label class="small">Consent: <select id="mon-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+        <span class="spacer"></span>
+        <button id="add-monitor" class="primary sm">Add monitor</button>
+      </div>
+    </div>
+    <ul id="monitors" class="history"></ul>
+    <div class="row"><button id="run-monitors" class="secondary sm">Run due monitors now</button></div>
+  </section>
+
+  <!-- History -->
   <section id="tab-history" class="tab-panel" hidden>
     <ul id="history" class="history"></ul>
     <p class="muted small" id="history-limit"></p>

@@ -31,6 +31,8 @@ export const DEFAULT_BRAND = {
   logoDataUrl: '',
   contact: '',
   preparedFor: '',
+  ctaText: '',
+  ctaUrl: '',
 };
 
 export async function getBrand() {
@@ -44,4 +46,34 @@ export async function setBrand(brand) {
 
 export function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export const DEFAULT_SETTINGS = { preserveLog: false };
+
+export async function getSettings() {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  return { ...DEFAULT_SETTINGS, ...settings };
+}
+
+export async function setSettings(patch) {
+  await chrome.storage.local.set({ settings: { ...(await getSettings()), ...patch } });
+}
+
+export async function updateAudit(id, patch) {
+  const audits = await listAudits();
+  const i = audits.findIndex(a => a.id === id);
+  if (i < 0) return null;
+  audits[i] = { ...audits[i], ...patch };
+  await chrome.storage.local.set({ [KEY]: audits });
+  return audits[i];
+}
+
+// Monitors: { id, host, urls[], frequency: 'daily'|'weekly', consentTest, enabled, lastRun, lastAuditId, lastScore }
+export async function listMonitors() {
+  const { monitors = [] } = await chrome.storage.local.get('monitors');
+  return monitors;
+}
+
+export async function saveMonitors(monitors) {
+  await chrome.storage.local.set({ monitors });
 }
