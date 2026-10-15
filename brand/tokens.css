@@ -1,0 +1,128 @@
+/* ============================================================================
+   The Growth Folks® design tokens: the single source of truth for every TGF
+   product (website, Chrome extensions, client reports, landing pages, sub-brands).
+   Copy this file as-is. Never redefine a value locally; if something is missing,
+   add it here first (see brand/GUIDELINES.md).
+   Version 1.0 (October 2026). Mirrors :root in src/styles/global.css.
+   Dark mode: follows the OS by default; force it with <html data-theme="dark|light">.
+   ========================================================================== */
+:root {
+  /* Colour */
+  --bg: #fbfaf7;            /* warm off-white page */
+  --surface: #ffffff;       /* cards, panels, inputs, menus */
+  --ink: #16181d;           /* text */
+  --ink-soft: #4a4f5a;      /* secondary text */
+  --line: #e6e3dc;          /* hairlines, card borders */
+  --line-strong: #c9c5bb;   /* input + outline-button borders */
+  --brand: #1f6b4f;         /* forest green: brand + the one action colour */
+  --brand-deep: #185640;    /* primary hover */
+  --brand-ink: #ffffff;     /* text on --brand */
+  --brand-soft: #e5f1eb;    /* pale green surfaces, badges */
+  --accent: #f2a541;        /* amber: "new / needs attention" only, never text */
+  --accent-soft: #fdeedb;
+  --accent-ink: #6b4a16;
+  --danger: #d64545;
+  --danger-soft: #fbe9e9;
+
+  /* Type */
+  --font: 'Inter', 'Inter Fallback', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --t-xs: 0.8125rem;   /* 13 */
+  --t-sm: 0.875rem;    /* 14 */
+  --t-base: 1.0625rem; /* 17 (web); dense app UI uses 14, see GUIDELINES §6 */
+  --t-lg: 1.25rem;     /* 20 */
+  --t-xl: 1.5rem;      /* 24 */
+  --t-h2: clamp(1.75rem, 3.4vw, 2.375rem);
+  --t-h1: clamp(2rem, 5vw, 3.25rem);
+  --t-display: clamp(2.375rem, 6vw, 3.75rem);
+
+  /* Space: 4px grid */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --section: clamp(56px, 8vw, 96px);
+  --section-tight: clamp(32px, 4vw, 48px);
+
+  /* Shape + depth */
+  --r-sm: 8px;    /* inputs, chips, small tiles */
+  --radius: 14px; /* cards */
+  --r-lg: 20px;   /* panels, bands, dialogs */
+  --pill: 999px;  /* buttons, badges */
+  --shadow: 0 10px 30px -12px rgb(22 24 29 / 0.18); /* hover + floating only */
+  --max: 1120px;
+
+  /* Funnel stages: a dot, numeral or label beside the stage name only */
+  --stage-awareness: #7c4dbd;
+  --stage-acquisition: #1f6b4f;
+  --stage-activation: #9e5406;
+  --stage-retention: #1d63a8;
+  --stage-revenue: #b3346b;
+  --stage-referral: #2f7f86;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #111317;
+    --surface: #191c22;
+    --ink: #eef0f3;
+    --ink-soft: #a7adb8;
+    --line: #2a2e36;
+    --line-strong: #474d59;
+    --brand: #4fbf92;
+    --brand-deep: #6ccfa6;
+    --brand-ink: #0c1f17;
+    --brand-soft: #16291f;
+    --accent-soft: #3a2a12;
+    --accent-ink: #f3c784;
+    --danger: #f07c7c;
+    --danger-soft: #3a1c1c;
+    --shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6);
+    --stage-awareness: #b291e6;
+    --stage-acquisition: #4fbf92;
+    --stage-activation: #f0a35a;
+    --stage-retention: #6aa9e8;
+    --stage-revenue: #ea7aa8;
+    --stage-referral: #5cc3c9;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #111317;
+  --surface: #191c22;
+  --ink: #eef0f3;
+  --ink-soft: #a7adb8;
+  --line: #2a2e36;
+  --line-strong: #474d59;
+  --brand: #4fbf92;
+  --brand-deep: #6ccfa6;
+  --brand-ink: #0c1f17;
+  --brand-soft: #16291f;
+  --accent-soft: #3a2a12;
+  --accent-ink: #f3c784;
+  --danger: #f07c7c;
+  --danger-soft: #3a1c1c;
+  --shadow: 0 10px 30px -12px rgb(0 0 0 / 0.6);
+  --stage-awareness: #b291e6;
+  --stage-acquisition: #4fbf92;
+  --stage-activation: #f0a35a;
+  --stage-retention: #6aa9e8;
+  --stage-revenue: #ea7aa8;
+  --stage-referral: #5cc3c9;
+  color-scheme: dark;
+}
+
+/* Metric-matched fallback so text does not jump while Inter loads. Ship Inter 400/600/800 locally. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  ascent-override: 90.2%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+  size-adjust: 107.4%;
+}
