@@ -1,6 +1,6 @@
 import { getBrand, setBrand, getSettings, setSettings } from '../src/storage.js';
 import { wireTgfLinks } from '../src/brand.js';
-import { getPlan, setPlan, LIMITS } from '../src/plan.js';
+import { getPlan, setPlan, LIMITS, upgradeUrl } from '../src/plan.js';
 import { LICENSE_CONFIG } from '../src/license-config.js';
 import { activateLicense, deactivateLicense, getLicense, revalidateIfDue, planFromLicense } from '../src/license.js';
 
@@ -75,8 +75,8 @@ async function renderLicense() {
   $('license-box').hidden = !LICENSE_CONFIG.enabled;
   if (!LICENSE_CONFIG.enabled) return;
   document.querySelector('#license-box').closest('fieldset').querySelector('.hint').textContent =
-    'Pro: white-label reports (your logo, colours, CTA, no credit line), 50-page scans, scheduled monitoring with alerts, 500 saved audits.';
-  $('license-buy').href = LICENSE_CONFIG.checkoutUrl;
+    'Pro: white-label reports (your logo, colours, CTA, no credit line), "changes since last audit" in reports, 50-page scans, scheduled monitoring with alerts, 500 saved audits. 7-day free trial.';
+  $('license-buy').href = upgradeUrl('options-plan');
   $('license-manage').href = LICENSE_CONFIG.manageUrl;
   const state = await getLicense();
   const active = planFromLicense(state) !== 'free';

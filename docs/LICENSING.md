@@ -24,11 +24,11 @@ You can start as an **individual / sole proprietor**. You don't need a company t
 - **Legal pages must name a real person.** Until you incorporate, terms of service, refund policy and privacy policy should say: *"Operated by <Your Full Name>, trading as The Growth Folks, <city>, India."*
 - **When to incorporate (LLP or Pvt Ltd):** when revenue, liability or investors justify it. Moving the Dodo account to a company later is a support request; your product IDs live only in `license-config.js`, so the extension side stays easy.
 
-### Important: the ® symbol
+### The ™ symbol (switched from ® on 2026-10-15)
 
-The extension name, UI and listing say **"The Growth Folks®"**. In India, using ® for a mark that isn't **registered** is an offence (falsely representing a trade mark as registered). If your trade mark isn't registered yet:
-- Switch to **™** (or no symbol) everywhere now. It's a one-line change in `src/brand.js` plus the manifest name and listing. Ask and I'll do it.
-- Apply for registration (likely classes 9 and 42 for software/SaaS). Individuals and startups pay a reduced fee per class. Switch back to ® only after the registration certificate is issued.
+The extension, listing and docs now say **"The Growth Folks™"**. Using ® for a mark that isn't **registered** is an offence in India (falsely representing a trade mark as registered), and the UAE takes the same view. ™ needs no registration.
+- Apply for registration (likely classes 9 and 42 for software/SaaS). Individuals and startups pay a reduced fee per class.
+- Switch back to ® only after the registration certificate is issued. To switch back, change `src/brand.js` and the manifest name, re-run `node store/make-graphics.mjs`, and update the listing.
 
 ## 3. Catalogue design for many extensions and plans
 
@@ -36,9 +36,9 @@ One Dodo business, one product per plan and billing period, with licence keys tu
 
 | Product (Dodo) | Price | Licence key activations | Unlocks |
 |---|---|---|---|
-| Tracking QA Pro (Monthly) | $19/mo | 3 | Tracking QA → Pro |
-| Tracking QA Pro (Yearly) | $190/yr | 3 | Tracking QA → Pro |
-| _Next extension_ Pro (Monthly / Yearly) | your price | 3 | That extension → Pro |
+| Tracking QA Pro (Monthly) | $19/mo | 5 | Tracking QA → Pro |
+| Tracking QA Pro (Yearly) | $190/yr | 5 | Tracking QA → Pro |
+| _Next extension_ Pro (Monthly / Yearly) | your price | 5 | That extension → Pro |
 | **TGF All-Access** (Monthly / Yearly) | e.g. $39/mo, $390/yr | 10 | Every TGF extension → Pro |
 | _Later:_ Tracking QA Agency | $59–79/mo | 5 | Tracking QA → Agency (needs the backend) |
 
@@ -46,7 +46,7 @@ How the extension decides:
 1. On **Activate**, it sends the key to Dodo's public endpoint. Dodo replies with the **business ID** and **product ID** the key belongs to.
 2. The extension accepts the key only if the business is **yours** (`storeId`) and the product is listed for **this** extension in `products` or `bundleProducts`. This check matters: licence endpoints are public, so without it any Dodo seller's key would unlock Pro.
 3. Every 3 days it re-validates the key. It stays Pro for 7 days if offline, and downgrades immediately if Dodo says the key is no longer valid (cancelled, refunded, expired).
-4. Each browser uses one activation. "Deactivate on this browser" frees it, which handles moving to a new laptop.
+4. Each browser uses one activation. "Deactivate on this browser" frees it, which handles moving to a new laptop. Uninstalling doesn't free it, which is why the limit is 5. When the limit is hit, the extension shows the support email, and you reset the key in Dodo (see `PRO-LAUNCH.md` section 3).
 
 Per extension, only `src/license-config.js` changes:
 
@@ -88,7 +88,7 @@ That also makes a future provider switch painless, because you own the customer 
    - refund policy (e.g. 14 days)
    - updated privacy policy (step 6)
    - "how to activate" page
-4. Fix the ® / ™ question (section 2).
+4. ~~Fix the ® / ™ question~~ Done: ™ is used until registration.
 
 **Me (code), once you send the IDs**
 5. Put your business ID and product IDs into `src/license-config.js`. Test the full purchase → key → activate → validate → deactivate flow in Dodo test mode. Then switch `mode: 'live'` and `enabled: true`. The activation screen in Settings, upgrade links and plan gating are already built and tested.

@@ -1,6 +1,6 @@
-// The Growth Folks® links used across the extension UI. utm_content says where in the UI a click came from.
+// The Growth Folks™ links used across the extension UI. utm_content says where in the UI a click came from.
 export const TGF = {
-  name: 'The Growth Folks®',
+  name: 'The Growth Folks™',
   extension: 'Tracking QA & Client Audit',
   slug: 'tracking-qa',
   email: 'hello@thegrowthfolks.com',

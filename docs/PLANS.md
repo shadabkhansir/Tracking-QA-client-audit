@@ -57,7 +57,7 @@ The Chrome Web Store's own payments were shut down years ago, so you need a thir
 | Onboarding | Fast | Fast | Strict (needs live pricing, terms and refund pages) |
 | Best when | You can handle tax yourself or sell mostly domestically | **You sell worldwide from one company and don't want to file VAT/GST in many countries** | You want Paddle's maturity and will build a backend for Agency anyway |
 
-**Recommendation: Lemon Squeezy license keys for Pro v1.** It's a Merchant of Record, so global tax is handled for you, and it needs no backend: the extension validates the key directly against the License API. If Lemon Squeezy isn't available to your company or region, use Paddle (plus a tiny licence endpoint, e.g. a Cloudflare Worker). Use ExtensionPay only if you're comfortable owning tax compliance.
+**Original recommendation (superseded by Dodo, see above): Lemon Squeezy license keys for Pro v1.** It's a Merchant of Record, so global tax is handled for you, and it needs no backend: the extension validates the key directly against the License API. If Lemon Squeezy isn't available to your company or region, use Paddle (plus a tiny licence endpoint, e.g. a Cloudflare Worker). Use ExtensionPay only if you're comfortable owning tax compliance.
 
 ## Launch steps (what you do, what we build)
 
@@ -95,9 +95,11 @@ The Chrome Web Store's own payments were shut down years ago, so you need a thir
 3. Watch: free→Pro conversion (target 2–4% of weekly actives), refund rate, churn after month 1. If churn is high, push yearly (two months free) and the monitoring feature.
 4. Build **Agency** only after ~50 paying Pro users ask for cloud monitoring or share links.
 
-## Open decisions for you
+## Decisions (2026-10-15)
 
-1. Provider: Lemon Squeezy (recommended), Paddle or ExtensionPay?
-2. Price: $19/month, $190/year (recommended), or keep $15?
-3. Trial: 7-day Pro trial (recommended), or none?
-4. Should "Changes since last audit" be Pro (recommended) or stay free?
+1. Provider: **Dodo Payments**, because Lemon Squeezy needs Stripe. See `LICENSING.md`.
+2. Price: **$19/month or $190/year**, with a launch offer of $15/$150 for the first 100 customers (a discount code).
+3. Trial: **7 days**, with Dodo's "Prevent Trial Misuse" switched on.
+4. "Changes since last audit": **Pro**. Free reports show a one-line preview (score change and resolved/new counts) with an upgrade link. The preview is left out of the PDF.
+
+Steps to go live are in [`PRO-LAUNCH.md`](PRO-LAUNCH.md).

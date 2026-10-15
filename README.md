@@ -1,4 +1,4 @@
-# Tracking QA & Client Audit by The Growth Folks®
+# Tracking QA & Client Audit by The Growth Folks™
 
 Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity and Hotjar tags plus Google Consent Mode v2 on any page, then turns the result into a branded client report.
 
@@ -30,7 +30,7 @@ The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing 
   - editable analyst notes and "Prepared for"
   - call-to-action button
   - CSV/JSON/summary export
-  - small "Made with Tracking QA & Client Audit by The Growth Folks®" credit in the footer, switchable off in Settings
+  - small "Made with Tracking QA & Client Audit by The Growth Folks™" credit in the footer, switchable off in Settings
 - **Pop-out window** pinned to a tab.
 
 - **Delivery status**: HTTP status and timing for every tracking request. Flags tag libraries that fail to load (e.g. a GTM 404), hits rejected by the endpoint, and hits blocked by an ad blocker in the auditor's own browser.
@@ -128,7 +128,7 @@ src/diff.js         before/after comparison between audits
 src/export.js       CSV / summary exports
 src/storage.js      history, branding, settings, monitors
 src/plan.js         free/pro limits
-src/brand.js        The Growth Folks® links (UTM-tagged) for the panel, options and report
+src/brand.js        The Growth Folks™ links (UTM-tagged) for the panel, options and report
 docs/               competitive analysis
 store/              Web Store listing copy, graphics and the script that generates them
 sidepanel/          live UI

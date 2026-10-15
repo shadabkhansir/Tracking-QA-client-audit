@@ -81,14 +81,15 @@ providers.dodo = {
     try { data = await res.json(); } catch { /* empty body */ }
     return { network: res.status >= 500 || res.status === 429, status: res.status, ok: res.ok, data };
   },
-  errorFor(status) {
-    return { 404: 'This licence key does not exist.', 403: 'This licence key is not active (expired, refunded or disabled).', 422: 'This licence key has reached its activation limit. Deactivate it on another browser first.' }[status]
+  errorFor(status, cfg) {
+    const reset = cfg?.supportEmail ? ` If you reinstalled the extension or changed computer, email ${cfg.supportEmail} with your key and we'll reset it.` : '';
+    return { 404: 'This licence key does not exist.', 403: 'This licence key is not active (expired, refunded or disabled).', 422: `This licence key has reached its activation limit. Deactivate it on another browser first.${reset}` }[status]
       || 'This licence key could not be activated.';
   },
   async activate(key, instanceName, fetchImpl, cfg) {
     const r = await this.call(cfg, 'activate', { license_key: key, name: instanceName }, fetchImpl);
     if (r.network) return { ok: false, network: true, error: 'Could not reach the licence server. Try again later.' };
-    if (!r.ok) return { ok: false, network: false, error: this.errorFor(r.status) };
+    if (!r.ok) return { ok: false, network: false, error: this.errorFor(r.status, cfg) };
     return { ok: true, network: false, error: null, status: 'active', expiresAt: null, instanceId: r.data.id || null,
       meta: { storeId: r.data.business_id ?? null, productId: r.data.product?.product_id ?? null, variantId: null, productName: r.data.product?.name || '', variantName: '' } };
   },

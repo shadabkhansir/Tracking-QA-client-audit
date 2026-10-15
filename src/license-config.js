@@ -17,7 +17,12 @@ export const LICENSE_CONFIG = {
   bundleProducts: {},
   // Lemon Squeezy only: per-variant override, e.g. an Agency variant { 777: 'pro' }
   variants: {},
+  // Pricing page (used by generic upgrade prompts) and, once products exist, direct checkout links per period,
+  // e.g. { monthly: 'https://checkout.dodopayments.com/buy/pdt_…', yearly: '…' }.
   checkoutUrl: 'https://thegrowthfolks.com/tools/tracking-qa/pricing',
+  checkoutUrls: {},
+  // Shown when a key hits its activation limit (e.g. after reinstalling), so the buyer can ask for a reset.
+  supportEmail: 'hello@thegrowthfolks.com',
   // Customer portal where buyers manage or cancel subscriptions (Dodo or Lemon Squeezy).
   manageUrl: 'https://thegrowthfolks.com/account',
   revalidateDays: 3,

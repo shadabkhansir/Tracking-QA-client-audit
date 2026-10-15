@@ -128,7 +128,7 @@ const FONT = "Inter, 'Segoe UI', system-ui, -apple-system, sans-serif";
 const dataUrl = buf => `data:image/png;base64,${buf.toString('base64')}`;
 
 const mark = (size = 15, color = C.ink) => `<div style="font:600 ${size}px/1.2 ${FONT};color:${color};letter-spacing:-.01em">
-  <span style="display:inline-block;width:${size * 0.62}px;height:${size * 0.62}px;border-radius:50%;background:${C.accent};margin-right:8px;vertical-align:1px"></span>The Growth Folks®</div>`;
+  <span style="display:inline-block;width:${size * 0.62}px;height:${size * 0.62}px;border-radius:50%;background:${C.accent};margin-right:8px;vertical-align:1px"></span>The Growth Folks™</div>`;
 
 function canvasHtml({ eyebrow, headline, sub, shot, shotWidth, bullets = [] }) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -183,7 +183,7 @@ function promoHtml({ w, h, big }) {
       <div class="icon"><img src="ICON"></div>
       <h1>Tracking QA &amp;<br>Client Audit</h1>
       <p>${big ? 'Audit GA4, GTM, Meta, TikTok and Consent Mode v2 in one click, then send a branded client report.' : 'Tag &amp; Consent Mode audits with branded client reports.'}</p>
-      <div class="by"><i></i>by The Growth Folks®</div>
+      <div class="by"><i></i>by The Growth Folks™</div>
     </div>
     ${big ? '<div class="card"><img src="SHOT"></div>' : ''}
   </body></html>`;

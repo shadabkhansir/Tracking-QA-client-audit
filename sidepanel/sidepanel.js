@@ -2,7 +2,7 @@ import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { describeParams } from '../src/params.js';
 import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId, importAudit } from '../src/storage.js';
-import { getPlan, getLimits } from '../src/plan.js';
+import { getPlan, getLimits, appendUpgrade } from '../src/plan.js';
 import { hitsToCsv, hitsToHar, download, summaryText } from '../src/export.js';
 import { wireTgfLinks } from '../src/brand.js';
 
@@ -292,6 +292,7 @@ $('start-scan').addEventListener('click', async () => {
 async function renderMonitors() {
   const pro = (await getPlan()) === 'pro';
   $('monitor-locked').hidden = pro;
+  if (!pro) appendUpgrade($('monitor-locked'), 'monitor-tab', 'Upgrade to Pro');
   $('monitor-form').hidden = !pro;
   $('run-monitors').hidden = !pro;
   const monitors = await listMonitors();
@@ -390,6 +391,10 @@ async function renderPlan() {
   $('plan-badge').classList.toggle('pro', plan === 'pro');
   $('scan-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan: up to ${limits.scanPages} pages per scan.`;
   $('history-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan keeps your last ${limits.historyItems} audits.`;
+  if (plan !== 'pro') {
+    appendUpgrade($('scan-limit'), 'scan-limit', 'Scan 50 pages with Pro');
+    appendUpgrade($('history-limit'), 'history-limit', 'Keep 500 with Pro');
+  }
 }
 
 async function init() {
@@ -404,5 +409,6 @@ async function init() {
 
 if (!pinnedTabId) chrome.tabs.onActivated.addListener(refreshLive);
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (tabId === activeTabId && info.url) refreshLive(); });
-chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.plan) { renderPlan(); renderMonitors(); } });
+// The plan changes with the developer toggle or when a licence is activated, revalidated or removed.
+chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && (changes.plan || changes['license'])) { renderPlan(); renderMonitors(); } });
 init();

@@ -1,4 +1,4 @@
-# Chrome Web Store listing: Tracking QA & Client Audit by The Growth Folks®
+# Chrome Web Store listing: Tracking QA & Client Audit by The Growth Folks™
 
 Copy-paste source for the Chrome Web Store Developer Dashboard. Everything below was checked against the code in
 this repo (manifest v1.0.0).
@@ -10,7 +10,7 @@ this repo (manifest v1.0.0).
 **Name** (from manifest, 47 chars)
 
 ```
-Tracking QA & Client Audit by The Growth Folks®
+Tracking QA & Client Audit by The Growth Folks™
 ```
 
 **Summary** (manifest `description`, 112/132 chars)
@@ -71,7 +71,7 @@ Every check, the inspectors, consent and GPC tests, funnel audits and exports ar
 PRIVACY
 Everything runs in your browser. The extension has no server, no analytics and no third-party code, and it sends no data anywhere. Saved audits stay in your browser's extension storage until you delete them. Full policy: https://thegrowthfolks.com/tools/tracking-qa/privacy
 
-Built by The Growth Folks®: https://thegrowthfolks.com/tools/tracking-qa
+Built by The Growth Folks™: https://thegrowthfolks.com/tools/tracking-qa
 ```
 
 > Note before publishing: the Free/Pro split in `src/plan.js` has no payment flow yet (Pro can only be switched on
@@ -229,7 +229,7 @@ No account or login is needed.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
 5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
-6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding is shown there but locked until the planned Pro plan launches.
+6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks™" footer credit; custom report branding is shown there but locked until the planned Pro plan launches.
 
 Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding belong to a planned Pro plan that is not purchasable yet; the UI labels them "coming soon". The alarms and notifications permissions are optional and only requested when monitoring is enabled.
 ```

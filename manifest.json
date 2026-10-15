@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Tracking QA & Client Audit by The Growth Folks\u00ae",
+  "name": "Tracking QA & Client Audit by The Growth Folks\u2122",
   "short_name": "Tracking QA",
   "version": "1.0.0",
   "description": "Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then send clients a polished report.",

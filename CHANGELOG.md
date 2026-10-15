@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Pro plan readiness** (licensing still off until Dodo products exist; see `docs/PRO-LAUNCH.md`)
+- The developer Pro toggle only works on unpacked installs. Previously a store install could unlock Pro by writing `plan` to storage.
+- Upgrade prompts at each Free limit: scan pages, history, Monitor tab, report branding, "changes since". Each tracks where it was clicked with `utm_content`. Until Pro is on sale they read "Pro: coming soon".
+- "Changes since last audit" is Pro. Free reports show a one-line preview (kept out of the PDF).
+- Dodo subscriptions that recover from on-hold or paused restore Pro (they previously stayed Free).
+- Hitting the activation limit, e.g. after a reinstall, now tells the buyer how to get the key reset.
+- The side panel updates as soon as a licence is activated or removed.
+- Separate monthly/yearly checkout links and a support email in `license-config.js`.
+- "The Growth Folks™" replaces ® everywhere (mark not yet registered); store graphics regenerated.
+
 ## 1.0.0 (2026-10-15): first store release
 
 Hardening release after a four-part pre-launch review (service worker, rules engine, UI, Web Store compliance).

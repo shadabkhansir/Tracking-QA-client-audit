@@ -1,7 +1,7 @@
 import { getAudit, getBrand, listAudits, updateAudit } from '../src/storage.js';
 import { diffFindings, findPrevious } from '../src/diff.js';
 import { findingsToCsv, download, summaryText } from '../src/export.js';
-import { getPlan, LIMITS } from '../src/plan.js';
+import { getPlan, LIMITS, appendUpgrade } from '../src/plan.js';
 import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { getSettings } from '../src/storage.js';
@@ -51,11 +51,15 @@ function consentTestHtml(t) {
     ${t.signalsAfter ? `<p class="muted" style="margin-top:8px">Google consent afterwards: ${['ad_storage', 'analytics_storage', 'ad_user_data', 'ad_personalization'].map(s => `${s} <b class="${cls(t.signalsAfter[s]?.effective)}">${esc(t.signalsAfter[s]?.effective || 'unset')}</b>`).join(' · ')}</p>` : ''}`;
 }
 
-function changesHtml(previous, findings, score) {
+function changesHtml(previous, findings, score, full) {
   if (!previous) return '';
   const prevFindings = previous.type === 'site' ? previous.site.findings : previous.result.findings;
   const d = diffFindings(prevFindings, findings);
   const prevScore = previous.type === 'site' ? previous.site.score : previous.result.score;
+  // Free plan: a one-line preview (kept out of the printed PDF); the full resolved/new lists are Pro.
+  if (!full) {
+    return `<p class="muted changes-teaser no-print" id="changes-teaser">Since ${esc(new Date(previous.createdAt).toLocaleDateString())}: score ${esc(prevScore)} → ${esc(score)}, ${esc(d.resolved.length)} resolved, ${esc(d.added.length)} new. The full before/after list for client reports is part of Pro.</p>`;
+  }
   const list = arr => arr.length ? `<ul>${arr.map(f => `<li>${esc(f.title)}</li>`).join('')}</ul>` : '<p class="muted">None</p>';
   return `<h2>Changes since ${esc(new Date(previous.createdAt).toLocaleDateString())}</h2>
     <p>Score: ${esc(prevScore)} → <b>${esc(score)}</b></p>
@@ -154,7 +158,7 @@ async function render() {
       </div>
     </div>
 
-    ${changesHtml(previous, data.findings, data.score)}
+    ${changesHtml(previous, data.findings, data.score, LIMITS[plan].changesSince)}
 
     <h2>Analyst notes</h2>
     <div class="notes" id="notes" contenteditable="true" data-placeholder="Click to add notes for your client (saved automatically, hidden in the PDF if empty).">${esc(audit.notes || '')}</div>
@@ -187,7 +191,11 @@ async function render() {
       ${footerCredit(LIMITS[plan].customBranding, showCredit !== false)}
     </div>`;
 
-  document.getElementById('toolbar-note').textContent = plan === 'pro' ? '' : 'Free plan: reports carry a small credit line. Custom branding is coming in Pro.';
+  const note = document.getElementById('toolbar-note');
+  note.textContent = plan === 'pro' ? '' : 'Free plan: reports carry a small credit line. Your logo, colours and CTA are part of Pro.';
+  if (plan !== 'pro') appendUpgrade(note, 'report-toolbar', 'Upgrade to Pro');
+  const teaser = document.getElementById('changes-teaser');
+  if (teaser) appendUpgrade(teaser, 'report-changes', 'See it with Pro');
 }
 
 let current = null;
