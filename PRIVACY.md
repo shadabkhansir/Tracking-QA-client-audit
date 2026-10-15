@@ -1,15 +1,85 @@
-# Privacy Policy: Tracking QA & Client Audit
+# Privacy Policy: Tracking QA & Client Audit by The Growth Folks®
 
-_Last updated: 2026-10-14_
+_Last updated: 2026-10-15_
 
-**What the extension reads.** For the tab you are inspecting, it observes requests sent to tracking endpoints (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok), and reads the page's tag configuration (`dataLayer`, consent state, pixel objects). Requests to other domains are ignored.
+Tracking QA & Client Audit ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
+analytics and advertising tags on websites you choose to audit. Everything it does happens inside your own browser.
 
-**What it stores.** Audit results (findings, tag IDs, event names, consent states, page URLs) are saved in your browser's local extension storage. Live request data is held in session storage and cleared when the tab navigates or closes. If an audit finds personal data such as an email address in a tracking payload, only the parameter name is recorded, never the value.
+## Summary
 
-**What it sends.** Nothing. The extension has no server, no analytics and no third-party SDKs. Reports are generated locally in your browser.
+- The extension has **no server**, **no analytics**, **no ads** and **no third-party SDKs**.
+- It **does not send any data** to The Growth Folks® or to anyone else.
+- Audit data stays in your browser's extension storage until you delete it or remove the extension.
 
-**Branding.** The agency name, colour and logo you enter are stored locally and used only in your reports.
+## What the extension reads
 
-**Deleting data.** Delete audits from the History tab, or remove the extension to erase everything.
+**Network requests (webRequest).** While the extension is installed, Chrome lets it see the URL (and, for POST
+requests, the body) of requests made by your tabs. Each request is checked in memory against a fixed list of tracking
+endpoints: Google Analytics 4 (including server-side Google Tag Manager endpoints on a site's own domain), Google Tag
+Manager, the Google tag, Google Ads, Floodlight, Meta Pixel, TikTok Pixel, LinkedIn Insight Tag, Pinterest Tag, Snap
+Pixel, X (Twitter) Pixel, Microsoft Advertising UET, Reddit Pixel, Microsoft Clarity and Hotjar. Requests that do not
+match are discarded immediately and never stored. For matching requests the extension keeps the platform, tag ID,
+event name and the request parameters, so you can inspect them. The URL of each top-level page you navigate to is kept
+as a marker so requests can be grouped by page.
 
-**Contact.** <add support email>
+**The page's tag setup.** On every http/https page, a small script records `dataLayer.push()` calls from the moment the
+page starts loading, so the dataLayer tab can show them in order. When you run an audit, the extension also reads the
+page's tag configuration: the dataLayer, Google's consent state, which Meta/TikTok pixel IDs are configured, which
+consent-management platform is present, and the **names** (never the values) of cookies set on the page. When you use
+"Use links from this page" it reads same-site link URLs from the page.
+
+**Consent banner test.** Only when you choose "Accept all" or "Reject all" as a consent test does the extension click
+that choice on the page's cookie banner (or call the consent platform's own API) so it can compare tag behaviour before
+and after.
+
+## What it stores, and where
+
+| Data | Where | How long |
+|---|---|---|
+| Live tracking requests and dataLayer pushes for each tab | `chrome.storage.session` (memory, never written to disk by Chrome) | Reset when the tab navigates (unless you turn on "Preserve log"), deleted when the tab closes, and gone when the browser quits |
+| Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names | `chrome.storage.local` on your device | Until you delete them in History. The Free plan keeps the last 5, Pro the last 500 |
+| Report notes and "Prepared for" text you type | `chrome.storage.local` | Stored with the audit |
+| Report branding you enter (agency name, contact line, colour, logo, call-to-action link) | `chrome.storage.local` | Until you change it or remove the extension |
+| Monitors you set up (URLs, schedule) and settings | `chrome.storage.local` | Until you remove them |
+
+**Personal data in tracking payloads.** Tracking requests and dataLayer pushes can contain personal data that the
+audited website itself sends to its vendors (for example an email address a site leaks into a pixel). Those raw values
+are only held in session storage for the live Requests and dataLayer tabs, and in any CSV/JSON file you choose to
+export. Saved audits and client reports record only the **name** of the parameter that contained personal data, never
+the value.
+
+## What it sends
+
+Nothing. The extension makes no network requests of its own and has no server to receive data. Reports, CSV and JSON
+files are generated locally and only leave your computer if you choose to download, print or share them.
+
+The extension opens links to thegrowthfolks.com (help, privacy, the welcome page after install, and an optional credit
+link in reports). These links carry UTM parameters that say the click came from the extension and from which part of
+the interface; they contain no audit data. Pages on thegrowthfolks.com are covered by that site's own privacy policy.
+
+## Optional permissions and actions you trigger
+
+- **Multi-page scans and monitoring** open the URLs you enter in background tabs and close them afterwards.
+  Scheduled monitoring (Pro) re-runs those scans in the background on the schedule you set and shows a desktop
+  notification when results change.
+- **Fresh visitor mode** asks for the optional `browsingData` permission and, only for the sites you are scanning,
+  deletes their cookies, local storage, IndexedDB and service workers before the scan (you will be logged out of
+  those sites). The extension asks you to confirm first.
+
+## Deleting your data
+
+Delete individual audits in the History tab, remove monitors in the Monitor tab, or remove the extension from
+`chrome://extensions` to erase everything it stored.
+
+## Children
+
+The extension is a professional tool for marketers and analysts and is not directed at children.
+
+## Changes
+
+If this policy changes, the new version will be published at https://thegrowthfolks.com/tools/tracking-qa/privacy with
+a new "Last updated" date.
+
+## Contact
+
+The Growth Folks® · hello@thegrowthfolks.com
