@@ -37,7 +37,7 @@ Priority reflects our buyer (agencies and freelancers auditing client sites), no
 | Debug pop-ups and new tabs in one session | Tag Assistant | Matters for payment pop-ups (PayPal) |
 | Microsoft Clarity consent signals | My Agile Privacy inspector | Clarity now has its own consent API |
 | Edge listing (and later Firefox) | Omnibug, ObservePoint, Meta | Edge is a re-listing with almost no code changes |
-| Rename / label IDs (e.g. "G-ABC = Main property") | Omnibug request | Makes client reports readable |
+| ~~Rename / label IDs (e.g. "G-ABC = Main property")~~ **built in 0.4** | Omnibug request | Makes client reports readable |
 
 ## Skip (and why)
 

@@ -18,7 +18,10 @@ let tabState = { hits: [], dl: [] };
 const ui = { filter: new Set(), search: '', open: new Set(), openDl: new Set() };
 const short = p => SHORT[p] || platformLabel(p);
 let idLabels = {};
-const withLabel = id => (idLabels[id] ? `${id} (${idLabels[id]})` : id);
+const withLabel = id => (Object.hasOwn(idLabels, id) && typeof idLabels[id] === 'string' ? `${id} (${idLabels[id]})` : id);
+// Stable row keys: indexes shift once the log is full and old entries drop off.
+const hitKey = h => `${h.requestId || ''}|${h.ts}|${h.id || ''}|${h.event || ''}|${h.kind}`;
+const dlKey = e => `${e.ts}|${e.type}|${dlLabel(e.entry)}`;
 
 // Delivery badge: HTTP status, or why the request never completed.
 function statusBadge(h) {
@@ -55,7 +58,6 @@ $('pop-out').addEventListener('click', async e => {
   const tab = await currentTab();
   chrome.windows.create({ url: chrome.runtime.getURL(`sidepanel/sidepanel.html?tabId=${tab.id}`), type: 'popup', width: 440, height: 820 });
 });
-$('monitor-upgrade').addEventListener('click', e => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 
 // ---- Live state -----------------------------------------------------------------------
 async function refreshLive() {
@@ -91,9 +93,10 @@ function renderHits() {
   $('hit-count').textContent = n ? `${n} tracking requests${ui.filter.size || ui.search ? ` (${shown.filter(x => x.h.kind !== 'nav').length} shown)` : ''}` : 'No tracking requests yet. Reload the page with this panel open.';
   $('hits').innerHTML = shown.map(({ h, i }) => {
     if (h.kind === 'nav') return `<li class="nav">↳ ${esc(h.url)}</li>`;
-    const open = ui.open.has(i);
+    const k = hitKey(h);
+    const open = ui.open.has(k);
     const rows = open ? describeParams(h).map(r => `<tr><td>${esc(r.label)}<code>${esc(r.key)}</code></td><td>${esc(r.value)}</td></tr>`).join('') : '';
-    return `<li data-i="${i}" class="${open ? 'open' : ''}"><span class="p">${esc(short(h.platform))}${h.source === 'shopify-sandbox' ? '<span class="src" title="Sent from a Shopify custom pixel (Customer Events sandbox)">Shopify</span>' : ''}</span>
+    return `<li data-k="${esc(k)}" class="${open ? 'open' : ''}"><span class="p">${esc(short(h.platform))}${h.source === 'shopify-sandbox' ? '<span class="src" title="Sent from a Shopify custom pixel (Customer Events sandbox)">Shopify</span>' : ''}</span>
       <span><span>${esc(h.event || (h.kind === 'script' ? 'library loaded' : '—'))}</span><br><span class="id">${esc(withLabel(h.id || ''))}</span></span>
       <span class="k">${statusBadge(h)}${h.consent?.gcs ? `<br>${esc(h.consent.gcs)}` : ''}</span>
       ${open ? `<table class="params">${rows || '<tr><td colspan="2">No parameters</td></tr>'}</table>` : ''}</li>`;
@@ -124,27 +127,28 @@ function renderDataLayer() {
   function dlRow(e, i) {
     if (e.type === 'reassigned') return `<li class="bad">⚠ dataLayer was overwritten${e.afterGtm ? ' after GTM loaded' : ''} (${e.previousLength} earlier entries detached)</li>`;
     n++;
-    const open = ui.openDl.has(i);
+    const k = dlKey(e);
+    const open = ui.openDl.has(k);
     const ecommerce = e.entry && e.entry.ecommerce ? '<span class="tag">ecommerce</span>' : '';
-    return `<li data-i="${i}"><span class="n">${n}</span><span class="ev">${esc(dlLabel(e.entry))}</span>${ecommerce}${e.existing ? '<span class="tag">before hook</span>' : ''}
+    return `<li data-k="${esc(k)}"><span class="n">${n}</span><span class="ev">${esc(dlLabel(e.entry))}</span>${ecommerce}${e.existing ? '<span class="tag">before hook</span>' : ''}
       ${open ? `<pre>${esc(JSON.stringify(e.entry, null, 2))}</pre>` : ''}</li>`;
   }
 }
 
 $('hits').addEventListener('click', e => {
   if (e.target.closest('.params')) return;
-  const li = e.target.closest('li[data-i]');
+  const li = e.target.closest('li[data-k]');
   if (!li) return;
-  const i = Number(li.dataset.i);
-  ui.open.has(i) ? ui.open.delete(i) : ui.open.add(i);
+  const k = li.dataset.k;
+  ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k);
   renderHits();
 });
 $('dl').addEventListener('click', e => {
   if (e.target.closest('pre')) return;
-  const li = e.target.closest('li[data-i]');
+  const li = e.target.closest('li[data-k]');
   if (!li) return;
-  const i = Number(li.dataset.i);
-  ui.openDl.has(i) ? ui.openDl.delete(i) : ui.openDl.add(i);
+  const k = li.dataset.k;
+  ui.openDl.has(k) ? ui.openDl.delete(k) : ui.openDl.add(k);
   renderDataLayer();
 });
 $('chips').addEventListener('click', e => {
@@ -244,6 +248,7 @@ $('reload-page').addEventListener('click', async () => {
 $('save-report').addEventListener('click', async () => {
   if (!lastResult) return;
   const saved = await send({ type: 'save-page-audit', result: lastResult });
+  if (!saved?.id) return alert(`Could not save the audit: ${saved?.error || 'browser storage is full. Delete old audits in History.'}`);
   chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(saved.id)}`) });
 });
 
@@ -269,7 +274,9 @@ $('scan-fresh').addEventListener('change', async e => {
   if (!ok) e.target.checked = false;
 });
 
-const parseUrls = text => text.split('\n').map(s => s.trim()).filter(s => /^https?:\/\//.test(s));
+const parseUrls = text => [...new Set(text.split('\n').map(s => s.trim()).filter(s => {
+  try { return /^https?:$/.test(new URL(s).protocol); } catch { return false; }
+}))];
 
 $('start-scan').addEventListener('click', async () => {
   const urls = parseUrls($('scan-urls').value);
@@ -297,7 +304,13 @@ async function renderMonitors() {
 $('add-monitor').addEventListener('click', async () => {
   const urls = parseUrls($('mon-urls').value);
   if (!urls.length) return alert('Add at least one http(s) URL.');
+  // Scheduling and alerts are optional permissions, asked for only when monitoring is first used.
+  const granted = await chrome.permissions.request({ permissions: ['alarms', 'notifications'] }).catch(() => false);
+  if (!granted) return alert('Monitoring needs permission to schedule scans and show alerts.');
   const monitors = await listMonitors();
+  if (monitors.some(m => m.urls.join('\n') === urls.join('\n'))) return alert('These URLs are already monitored.');
+  const { monitors: maxMonitors } = await getLimits();
+  if (monitors.length >= maxMonitors) return alert(`Your plan allows ${maxMonitors} monitors. Remove one to add another.`);
   monitors.push({ id: newId(), host: new URL(urls[0]).hostname, urls, frequency: $('mon-freq').value, consentTest: $('mon-consent').value || false, enabled: true, lastRun: 0 });
   await saveMonitors(monitors);
   $('mon-urls').value = '';
@@ -323,6 +336,7 @@ chrome.runtime.onMessage.addListener(msg => {
   }
   if (msg.type === 'scan-done') {
     $('start-scan').disabled = false;
+    if (msg.error) { $('scan-status').textContent = ''; return alert(`The scan finished but could not be saved: ${msg.error}`); }
     chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(msg.auditId)}`) });
   }
 });
@@ -340,11 +354,14 @@ async function renderHistory() {
   $('history').innerHTML = audits.length ? audits.map(a => {
     const score = a.type === 'site' ? a.site.score : a.result.score;
     const label = `${a.type === 'site' ? `${a.pages.length}-page scan${a.monitorId ? ' (monitor)' : ''}` : a.result.session ? 'Funnel audit' : 'Page audit'}${a.imported ? ' · imported' : ''}`;
-    return `<li><div><div>${esc(a.host)}</div><div class="meta">${esc(label)} · score ${score} · ${new Date(a.createdAt).toLocaleString()}</div></div>
+    return `<li><div><div>${esc(a.host)}</div><div class="meta">${esc(label)} · score ${esc(score)} · ${new Date(a.createdAt).toLocaleString()}</div></div>
       <div><button data-open="${esc(a.id)}">Open</button><button class="del" data-del="${esc(a.id)}">Delete</button></div></li>`;
   }).join('') : '<li class="muted">No saved audits yet.</li>';
 }
 
+document.querySelector('.btn-file').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('import-audit').click(); }
+});
 $('import-audit').addEventListener('change', async e => {
   const file = e.target.files[0];
   e.target.value = '';

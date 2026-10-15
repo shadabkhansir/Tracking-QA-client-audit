@@ -70,7 +70,7 @@ test('placement and order', () => {
 test('pixel health: IDs, case, empty, auto events, multiple conversions, _ttp', () => {
   const hits = [
     hit('meta', { id: '123', event: 'Purchase' }), hit('meta', { id: '123', event: 'Lead' }), hit('meta', { id: '123', event: 'SubscribedButtonClick' }),
-    hit('tiktok', { id: 'bad-id', event: 'completePayment' }), hit('tiktok', { id: 'C4ABCDEFGHIJKLMNOPQR', event: null }),
+    hit('tiktok', { id: 'bad-id', event: 'completePayment' }), hit('tiktok', { id: 'C4ABCDEFGHIJKLMNOPQR', event: null, url: 'https://analytics.tiktok.com/api/v2/pixel' }),
     hit('tiktok', { id: 'C4ABCDEFGHIJKLMNOPQR', event: 'CompletePayment' }), hit('tiktok', { id: 'C4ABCDEFGHIJKLMNOPQR', event: 'SubmitForm' }),
   ];
   const out = ids(validatePixelHealth(hits, { cookieNames: ['_fbp'], signals: { ad_storage: { effective: 'granted' } } }));

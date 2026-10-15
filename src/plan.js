@@ -1,8 +1,9 @@
 // Free vs Pro gating. Payments are not wired yet: `pro` is set by a license integration
 // (e.g. ExtensionPay or Lemon Squeezy) calling setPlan('pro'). Unpacked dev installs get a toggle in Options.
+// Must match docs/PLANS.md.
 export const LIMITS = {
-  free: { scanPages: 3, historyItems: 5, customBranding: false },
-  pro: { scanPages: 50, historyItems: 500, customBranding: true },
+  free: { scanPages: 3, historyItems: 5, customBranding: false, monitors: 0 },
+  pro: { scanPages: 50, historyItems: 500, customBranding: true, monitors: 20 },
 };
 
 export async function getPlan() {

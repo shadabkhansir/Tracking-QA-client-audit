@@ -47,7 +47,8 @@ export function validateGa4(hits) {
     const e = ecommerceOf(h);
     if (ev.length > 40) out.push(f('ga4-event-name-length', 'warning', 'GA4 event name longer than 40 characters', 'GA4 drops events with names over 40 characters.', 'Shorten the event name in the tag or dataLayer push.', { event: ev }));
     if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(ev)) out.push(f('ga4-event-name-chars', 'warning', 'GA4 event name has invalid characters', 'Event names must start with a letter and use only letters, numbers and underscores.', 'Rename the event (e.g. "form_submit" instead of "Form Submit").', { event: ev }));
-    if (GA4_RESERVED.has(ev)) out.push(f('ga4-reserved-event', 'warning', 'GA4 reserved event name used', 'This name is reserved by Google and the event will be ignored or misreported.', 'Rename the custom event.', { event: ev }));
+    // gtag.js sends user_engagement itself; only names a site chose are worth flagging.
+    if (GA4_RESERVED.has(ev) && ev !== 'user_engagement') out.push(f('ga4-reserved-event', 'warning', 'GA4 reserved event name used', 'This name is reserved by Google and the event will be ignored or misreported.', 'Rename the custom event.', { event: ev }));
     const custom = Object.keys(h.params).filter(k => /^epn?\./.test(k));
     if (custom.length > 25) out.push(f('ga4-param-count', 'warning', 'More than 25 event parameters', 'GA4 keeps only the first 25 parameters per event; the rest are silently dropped.', 'Move secondary data into items or user properties, or drop unused parameters.', { event: ev }));
     if (custom.some(k => k.replace(/^epn?\./, '').length > 40)) out.push(f('ga4-param-name-length', 'warning', 'Event parameter name over 40 characters', 'GA4 drops parameters whose names exceed 40 characters.', 'Shorten the parameter names.', { event: ev }));
@@ -84,8 +85,9 @@ export function validateMeta(hits) {
     counts.set(k, (counts.get(k) || 0) + 1);
   }
   for (const [k, n] of counts) {
-    const [id, ev] = k.split('|');
-    if (n > 1) out.push(f('meta-multiple-activation', 'warning', 'Meta Pixel event activated multiple times', `${ev} fired ${n}× for pixel ${id} on one page load. Meta counts each one, inflating conversions.`, 'Make sure the event fires from one trigger only (theme code, plugin or GTM, not several).', { event: ev }));
+    const [id, ev, eid] = k.split('|');
+    // Same event_id twice is a certain duplicate; without event_id repeated events may be real clicks (e.g. two add-to-carts).
+    if (n > 1) out.push(f('meta-multiple-activation', eid ? 'warning' : 'info', 'Meta Pixel event activated multiple times', `${ev} fired ${n}× for pixel ${id} on one page load${eid ? ' with the same event_id' : ''}. ${eid ? 'Meta counts each one, inflating conversions.' : 'Fine if each came from a separate user action; otherwise conversions are inflated.'}`, 'Make sure the event fires from one trigger only (theme code, plugin or GTM, not several).', { event: ev }));
   }
   for (const h of hits.filter(x => x.platform === 'meta' && x.event)) {
     const ev = h.event;
@@ -156,7 +158,9 @@ export function validateCookies(probe, signals, table = null) {
   const ad = signals.ad_storage?.effective === 'denied' ? pick('advertising') : [];
   const an = signals.analytics_storage?.effective === 'denied' ? pick('analytics') : [];
   if (ad.length || an.length) {
-    out.push(f('cookies-without-consent', 'critical', 'Tracking cookies present while consent is denied',
+    // Warning, not critical: cookies can be left over from an earlier consented visit. Pixels firing while
+    // denied (a separate critical) is the hard evidence.
+    out.push(f('cookies-without-consent', 'warning', 'Tracking cookies present while consent is denied',
       `Found: ${[...ad, ...an].join(', ')}. Consent signals say denied, but these cookies exist.`,
       'Block these tags until consent. Re-run with "Fresh visitor" enabled to rule out cookies left over from an earlier visit.'));
   }
@@ -195,8 +199,10 @@ export function validateCrossPlatform(hits) {
 }
 
 // ---- Delivery ----------------------------------------------------------------------------
-const BLOCKED_RE = /BLOCKED_BY_CLIENT|BLOCKED_BY_ADMINISTRATOR|BLOCKED_BY_RESPONSE/;
-const IGNORE_ERRORS = /ERR_ABORTED/; // navigation away or cancelled beacons; not a delivery failure
+const BLOCKED_RE = /BLOCKED_BY_CLIENT|BLOCKED_BY_ADMINISTRATOR/;
+// Not delivery failures: navigation away / cancelled beacons, and responses the browser discards after the vendor
+// already received the request (ORB, CORP).
+const IGNORE_ERRORS = /ERR_ABORTED|ERR_BLOCKED_BY_ORB|ERR_BLOCKED_BY_RESPONSE/;
 
 // Did vendor endpoints accept the requests? "Accepted" means the endpoint answered 2xx/3xx, not that the platform processed the event.
 export function validateDelivery(hits) {
@@ -332,9 +338,11 @@ export function validatePixelHealth(hits, { session = false, cookieNames = [], s
   const badTt = [...new Set(tt.map(h => h.id).filter(id => id && !/^[A-Z0-9]{15,25}$/.test(id)))];
   if (badTt.length) out.push(f('tiktok-invalid-pixel-id', 'warning', 'TikTok pixel ID looks invalid', `IDs: ${badTt.join(', ')}. TikTok pixel codes are ~20 uppercase letters and digits.`, 'Copy the pixel code from TikTok Events Manager.'));
 
-  if (tt.some(h => !h.event)) out.push(f('tiktok-empty-event', 'warning', 'TikTok event sent without a name', 'TikTok drops events with an empty event name.', 'Pass an event name to ttq.track(), e.g. ttq.track("ViewContent").'));
+  // Only the main event endpoint must carry a name; interaction endpoints (/api/v2/pixel/act …) may not.
+  const ttPath = h => { try { return new URL(h.url).pathname; } catch { return ''; } };
+  if (tt.some(h => !h.event && /\/api\/v2\/pixel(\/batch)?\/?$/.test(ttPath(h)))) out.push(f('tiktok-empty-event', 'warning', 'TikTok event sent without a name', 'TikTok drops events with an empty event name.', 'Pass an event name to ttq.track(), e.g. ttq.track("ViewContent").'));
   const ttLower = new Map(TIKTOK_STANDARD.map(e => [e.toLowerCase(), e]));
-  const ttCase = [...new Set(tt.map(h => h.event).filter(e => e && ttLower.has(e.toLowerCase()) && ttLower.get(e.toLowerCase()) !== e))];
+  const ttCase = [...new Set(tt.map(h => h.event).filter(e => typeof e === 'string' && ttLower.has(e.toLowerCase()) && ttLower.get(e.toLowerCase()) !== e))];
   if (ttCase.length) out.push(f('tiktok-event-case', 'warning', 'TikTok standard event has the wrong case', `${ttCase.map(e => `"${e}" should be "${ttLower.get(e.toLowerCase())}"`).join('; ')}. Wrong case makes it a custom event that can't be used for optimisation.`, 'Use the exact standard event name.'));
 
   const ttPay = tt.filter(h => ['CompletePayment', 'Purchase', 'PlaceAnOrder'].includes(h.event));
@@ -342,7 +350,7 @@ export function validatePixelHealth(hits, { session = false, cookieNames = [], s
     out.push(f('tiktok-no-user-data', 'info', 'TikTok purchase without email or phone', 'Advanced matching data improves TikTok match rate and attribution on purchases.', 'Call ttq.identify({ email, phone_number }) before the purchase event (TikTok hashes it).'));
   }
   if (tt.length && cookieNames.length && signals?.ad_storage?.effective !== 'denied' && !cookieNames.includes('_ttp')) {
-    out.push(f('tiktok-no-first-party-cookie', 'warning', 'TikTok first-party cookie (_ttp) not found', 'TikTok events fire but its first-party cookie is missing, so attribution falls back to weaker signals.', 'Enable "First-party cookies" in TikTok Events Manager → Pixel settings.'));
+    out.push(f('tiktok-no-first-party-cookie', 'info', 'TikTok first-party cookie (_ttp) not found', 'TikTok events fire but its first-party cookie is missing, so attribution falls back to weaker signals.', 'Enable "First-party cookies" in TikTok Events Manager → Pixel settings.'));
   }
 
   const auto = [...new Set(meta.map(h => h.event).filter(e => ['SubscribedButtonClick', 'Microdata'].includes(e)))];
@@ -350,15 +358,15 @@ export function validatePixelHealth(hits, { session = false, cookieNames = [], s
 
   if (!session) {
     const mConv = [...new Set(meta.map(h => h.event).filter(e => META_CONVERSIONS.has(e)))];
-    if (mConv.length > 1) out.push(f('meta-multiple-conversions', 'warning', 'Several Meta conversion events on one page load', `${mConv.join(', ')} fired on the same page. Without separate user actions this inflates conversions.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
+    if (mConv.length > 1) out.push(f('meta-multiple-conversions', 'info', 'Several Meta conversion events on one page load', `${mConv.join(', ')} fired on the same page. Fine if each came from a separate user action (e.g. a one-page checkout); otherwise conversions are inflated.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
     const tConv = [...new Set(tt.map(h => h.event).filter(e => TIKTOK_CONVERSIONS.has(e)))];
-    if (tConv.length > 1) out.push(f('tiktok-multiple-conversions', 'warning', 'Several TikTok conversion events on one page load', `${tConv.join(', ')} fired on the same page.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
+    if (tConv.length > 1) out.push(f('tiktok-multiple-conversions', 'info', 'Several TikTok conversion events on one page load', `${tConv.join(', ')} fired on the same page.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
   }
   return out;
 }
 
 // ---- Shopify Customer Events (custom pixels) ------------------------------------------------
-const SANDBOX_URL = /\/(wpm|web-pixels)@[^/]*\/|\/web-pixels?(@|-)|\/sandbox\/modern\//;
+const SANDBOX_URL = /\/(?:wpm|web-pixels)@[^/]+\/|\/sandbox\/modern\//;
 const PAGE_URL_KEYS = ['dl', 'context.page.url', 'url', 'p', 'page_url', 'pu'];
 
 export function validateShopify(hits, probe) {

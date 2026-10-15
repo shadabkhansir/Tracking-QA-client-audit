@@ -45,7 +45,7 @@ function consentTestHtml(t) {
   return `<h2>${gpc ? 'Global Privacy Control test' : 'Consent banner test'}</h2>
     <p>${gpc ? 'We reloaded the page with the browser\'s Global Privacy Control signal on (Sec-GPC: 1 header and navigator.globalPrivacyControl), as a US visitor opting out of ad sharing would, and compared what each platform sent.' : `We clicked "${t.mode === 'reject' ? 'reject all' : 'accept all'}" (${esc(t.method)}) and compared what each platform sent before and after.`}</p>
     <table><thead><tr><th>Platform</th><th>Requests before</th><th>Requests ${gpc ? 'with GPC on' : `after ${t.mode === 'reject' ? 'rejecting' : 'accepting'}`}</th></tr></thead><tbody>
-      ${plats.map(p => `<tr><td>${esc(platformLabel(p))}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('') || '<tr><td colspan="3">No tracking requests in either state.</td></tr>'}
+      ${plats.map(p => `<tr><td>${esc(platformLabel(p))}</td><td>${esc(t.before?.[p] || 0)}</td><td>${esc(t.after?.[p] || 0)}</td></tr>`).join('') || '<tr><td colspan="3">No tracking requests in either state.</td></tr>'}
     </tbody></table>
     ${t.cookiesAdded?.length ? `<p class="muted" style="margin-top:8px">Cookies set afterwards: ${esc(t.cookiesAdded.join(', '))}</p>` : ''}
     ${t.signalsAfter ? `<p class="muted" style="margin-top:8px">Google consent afterwards: ${['ad_storage', 'analytics_storage', 'ad_user_data', 'ad_personalization'].map(s => `${s} <b class="${cls(t.signalsAfter[s]?.effective)}">${esc(t.signalsAfter[s]?.effective || 'unset')}</b>`).join(' · ')}</p>` : ''}`;
@@ -58,13 +58,13 @@ function changesHtml(previous, findings, score) {
   const prevScore = previous.type === 'site' ? previous.site.score : previous.result.score;
   const list = arr => arr.length ? `<ul>${arr.map(f => `<li>${esc(f.title)}</li>`).join('')}</ul>` : '<p class="muted">None</p>';
   return `<h2>Changes since ${esc(new Date(previous.createdAt).toLocaleDateString())}</h2>
-    <p>Score: ${prevScore} → <b>${score}</b></p>
+    <p>Score: ${esc(prevScore)} → <b>${esc(score)}</b></p>
     <div class="changes"><div><h3 class="sev pass">Resolved (${d.resolved.length})</h3>${list(d.resolved)}</div>
     <div><h3 class="sev critical">New (${d.added.length})</h3>${list(d.added)}</div></div>`;
 }
 
 let idLabels = {};
-const withLabel = id => (idLabels[id] ? `${id} (${idLabels[id]})` : id);
+const withLabel = id => (Object.hasOwn(idLabels, id) && typeof idLabels[id] === 'string' ? `${id} (${idLabels[id]})` : id);
 
 function cookieTableHtml(cookies) {
   if (!cookies?.length) return '';
@@ -92,8 +92,8 @@ function findingsHtml(findings, isSite, pageCount) {
   const passes = findings.filter(f => f.severity === 'pass');
   return `
     ${issues.length ? issues.map(f => `
-      <div class="finding ${f.severity}">
-        <div class="t"><span>${esc(f.title)}</span><span class="sev ${f.severity}">${SEV_LABEL[f.severity]}</span></div>
+      <div class="finding ${esc(f.severity)}">
+        <div class="t"><span>${esc(f.title)}</span><span class="sev ${esc(f.severity)}">${esc(SEV_LABEL[f.severity] || '')}</span></div>
         ${f.detail ? `<div>${esc(f.detail)}</div>` : ''}
         ${f.fix ? `<div class="fix"><b>How to fix:</b> ${esc(f.fix)}</div>` : ''}
         ${isSite && f.pages ? `<div class="pages">Affects ${f.pages.length}/${pageCount} pages${f.pages.length <= 5 ? `: ${f.pages.map(esc).join(', ')}` : ''}</div>` : ''}
@@ -135,21 +135,21 @@ async function render() {
   el.innerHTML = `
     <div class="head">
       <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="">` : `<div class="agency">${esc(brand.agencyName || 'Tracking QA')}</div>`}</div>
-      <div class="meta">Prepared for <span id="prepared-for" contenteditable="true">${esc(audit.preparedFor ?? brand.preparedFor ?? '') || 'Client name'}</span><br>${esc(date)}</div>
+      <div class="meta"><span class="prep${(audit.preparedFor ?? brand.preparedFor) ? '' : ' empty'}">Prepared for <span id="prepared-for" contenteditable="true" data-placeholder="Client name">${esc(audit.preparedFor ?? brand.preparedFor ?? '')}</span><br></span>${esc(date)}</div>
     </div>
     <h1>Tracking &amp; Consent Audit</h1>
     <div class="site">${esc(audit.host)}${isSite ? ` · ${pageCount} pages scanned` : ` · ${esc(audit.url)}`}</div>
 
     <div class="summary">
-      <div class="dial" style="background: conic-gradient(${scoreColor(data.score)} ${data.score * 3.6}deg, var(--line) 0)">
-        <div class="inner"><div><div class="num">${data.score}</div><div class="lbl">${grade(data.score)}</div></div></div>
+      <div class="dial" style="background: conic-gradient(${scoreColor(data.score)} ${Number(data.score) * 3.6 || 0}deg, var(--line) 0)">
+        <div class="inner"><div><div class="num">${esc(data.score)}</div><div class="lbl">${grade(data.score)}</div></div></div>
       </div>
       <div>
         <p>${esc(executiveSummary(data.counts, data.score, isSite, pageCount))}</p>
         <div class="tally">
-          <div><b class="sev critical">${data.counts.critical}</b>Critical</div>
-          <div><b class="sev warning">${data.counts.warning}</b>Warnings</div>
-          <div><b class="sev pass">${data.counts.pass}</b>Passed</div>
+          <div><b class="sev critical">${esc(data.counts.critical)}</b>Critical</div>
+          <div><b class="sev warning">${esc(data.counts.warning)}</b>Warnings</div>
+          <div><b class="sev pass">${esc(data.counts.pass)}</b>Passed</div>
         </div>
       </div>
     </div>
@@ -175,19 +175,19 @@ async function render() {
     ${!isSite && audit.result.session ? `<h2>Funnel steps audited</h2><ol class="steps">${audit.result.session.steps.map(u => `<li>${esc(u)}</li>`).join('')}</ol>` : ''}
 
     ${isSite ? `<h2>Pages scanned</h2><table><thead><tr><th>URL</th><th>Score</th><th>Critical</th><th>Warnings</th></tr></thead><tbody>
-      ${audit.pages.map(p => `<tr><td class="mono">${esc(p.url)}</td><td>${p.score}</td><td>${p.counts.critical}</td><td>${p.counts.warning}</td></tr>`).join('')}
+      ${audit.pages.map(p => `<tr><td class="mono">${esc(p.url)}</td><td>${esc(p.score)}</td><td>${esc(p.counts?.critical ?? 0)}</td><td>${esc(p.counts?.warning ?? 0)}</td></tr>`).join('')}
     </tbody></table>${audit.truncated ? `<p class="muted">${audit.truncated} more URLs were not scanned (plan limit).</p>` : ''}` : ''}
 
     <h2>Method</h2>
     <p class="muted">Pages were loaded in a standard Chrome browser and the network requests sent to the analytics and advertising platforms listed above were inspected, together with the page's tag configuration. Results reflect the visitor state at the time of the scan (typically before any cookie banner interaction). Server-side events (Conversions API, Measurement Protocol) are not visible from the browser and are not covered.</p>
 
     <div class="foot">
-      <span>${esc(brand.agencyName)}${brand.contact ? ` · ${esc(brand.contact)}` : ''}</span>
+      <span>${esc(brand.agencyName)}${brand.contact && LIMITS[plan].customBranding ? ` · ${esc(brand.contact)}` : ''}</span>
       ${brand.ctaText && LIMITS[plan].customBranding ? `<a class="cta" href="${esc(/^https?:\/\//.test(brand.ctaUrl || '') ? brand.ctaUrl : '#')}">${esc(brand.ctaText)}</a>` : ''}
       ${footerCredit(LIMITS[plan].customBranding, showCredit !== false)}
     </div>`;
 
-  document.getElementById('toolbar-note').textContent = plan === 'pro' ? '' : 'Free plan: upgrade to remove the watermark and add your logo.';
+  document.getElementById('toolbar-note').textContent = plan === 'pro' ? '' : 'Free plan: reports carry a small credit line. Custom branding is coming in Pro.';
 }
 
 let current = null;
@@ -209,4 +209,6 @@ document.getElementById('copy').addEventListener('click', async e => {
   setTimeout(() => { e.target.textContent = 'Copy summary'; }, 1200);
 });
 wireTgfLinks(document.querySelector('.toolbar'), 'report-toolbar');
-render();
+render().catch(() => {
+  document.getElementById('report').innerHTML = '<p>This audit could not be displayed. The saved or imported file may be damaged.</p>';
+});

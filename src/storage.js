@@ -11,13 +11,22 @@ export async function getAudit(id) {
   return (await listAudits()).find(a => a.id === id) || null;
 }
 
-// Newest first; trimmed to the plan's history limit.
+// Saved audits must not keep personal data: page URLs can carry emails (forms submitted with GET).
+const EMAIL_IN_TEXT = /[A-Z0-9._%+-]+(?:@|%40)[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.(?!(?:png|jpe?g|gif|webp|svg|avif)\b)[A-Z]{2,}\b/gi;
+export function redactEmails(obj) {
+  return JSON.parse(JSON.stringify(obj).replace(EMAIL_IN_TEXT, '[email]'));
+}
+
+// Newest first; trimmed to the plan's history limit, but never below what is already saved
+// (so a Pro → Free downgrade does not delete history).
 export async function saveAudit(audit) {
   const { historyItems } = await getLimits();
-  const audits = (await listAudits()).filter(a => a.id !== audit.id);
-  audits.unshift(audit);
-  await chrome.storage.local.set({ [KEY]: audits.slice(0, historyItems) });
-  return audit;
+  const clean = redactEmails(audit);
+  const audits = (await listAudits()).filter(a => a.id !== clean.id);
+  const keep = Math.max(historyItems, audits.length);
+  audits.unshift(clean);
+  await chrome.storage.local.set({ [KEY]: audits.slice(0, keep) });
+  return clean;
 }
 
 export async function deleteAudit(id) {
@@ -85,6 +94,22 @@ export async function importAudit(data) {
     && ((data.type === 'page' && Array.isArray(data.result?.findings)) || (data.type === 'site' && Array.isArray(data.site?.findings) && Array.isArray(data.pages)));
   if (!ok) throw new Error('This file is not a Tracking QA audit export.');
   const audit = JSON.parse(JSON.stringify(data));
+  // Imported files are untrusted: force numeric and enum fields to safe values before anything renders them.
+  const num = v => (Number.isFinite(+v) ? +v : 0);
+  const SEV = ['critical', 'warning', 'info', 'pass'];
+  const clean = d => {
+    if (!d || typeof d !== 'object') return;
+    d.score = num(d.score);
+    d.counts = Object.fromEntries(SEV.map(k => [k, num(d.counts?.[k])]));
+    d.platforms = d.platforms && typeof d.platforms === 'object' && !Array.isArray(d.platforms) ? d.platforms : {};
+    for (const p of Object.values(d.platforms)) if (p && typeof p === 'object') { p.ids = Array.isArray(p.ids) ? p.ids.map(String) : []; p.pages = num(p.pages); }
+    d.findings = (Array.isArray(d.findings) ? d.findings : []).filter(f => f && typeof f === 'object')
+      .map(f => ({ ...f, id: String(f.id || ''), title: String(f.title || ''), detail: String(f.detail || ''), fix: String(f.fix || ''), severity: SEV.includes(f.severity) ? f.severity : 'info', pages: Array.isArray(f.pages) ? f.pages.map(String) : undefined }));
+  };
+  clean(audit.result);
+  clean(audit.site);
+  if (Array.isArray(audit.pages)) { audit.pages = audit.pages.filter(p => p && typeof p === 'object'); audit.pages.forEach(p => { clean(p); p.url = String(p.url || ''); }); }
+  audit.truncated = num(audit.truncated);
   audit.id = newId();
   audit.imported = true;
   audit.host = String(audit.host || (() => { try { return new URL(audit.url).hostname; } catch { return 'imported'; } })());

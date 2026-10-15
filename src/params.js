@@ -100,7 +100,7 @@ export function ecommerceOf(hit) {
       value: num(p['cd[value]']),
       currency: p['cd[currency]'],
       eventId: p.eid,
-      contentIds: Array.isArray(parsedIds) ? parsedIds : ids ? [ids] : Array.isArray(contents) ? contents.map(c => c.id) : [],
+      contentIds: Array.isArray(parsedIds) ? parsedIds : ids ? [ids] : Array.isArray(contents) ? contents.map(c => c?.id).filter(Boolean) : [],
       contentType: p['cd[content_type]'],
     };
   }

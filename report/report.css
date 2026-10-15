@@ -50,6 +50,7 @@ td.mono { font-family: ui-monospace, monospace; font-size: 11px; word-break: bre
 .tgf-tool a:hover { text-decoration: underline; }
 @media (max-width: 1000px) { .tgf-tool .tgf-links { display: none; } }
 [contenteditable] { outline: none; border-radius: 4px; }
+#prepared-for:empty::before { content: attr(data-placeholder); color: var(--muted); }
 [contenteditable]:hover, [contenteditable]:focus { background: #fff8db; }
 .notes { min-height: 48px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; white-space: pre-wrap; }
 .notes:empty::before { content: attr(data-placeholder); color: var(--muted); }
@@ -60,6 +61,7 @@ td.mono { font-family: ui-monospace, monospace; font-size: 11px; word-break: bre
 .steps { padding-left: 20px; } .steps li { word-break: break-all; font-size: 12px; }
 @media print {
   .notes:empty { display: none; }
+  .prep.empty { display: none; }
   [contenteditable]:hover, [contenteditable]:focus { background: none; }
   html { background: #fff; }
   .no-print { display: none !important; }

@@ -15,23 +15,52 @@ const MONITOR_ALARM = 'monitor-tick';
 const MAX_BODY_CHARS = 4000;
 const GPC_RULE_ID = 9000;
 
-// tabId -> { url, startedAt, hits[], dl[] }. Mirrored to storage.session so a worker restart keeps live data.
+// tabId -> { url, startedAt, hits[], dl[] }. Mirrored to storage.session (one key per tab) so a worker restart keeps live data.
 const tabs = new Map();
-let restored = false;
+const dirty = new Set();
+let restoring = null;
 let persistTimer = null;
+const tabKey = id => `tab:${id}`;
 
-async function restore() {
-  if (restored) return;
-  restored = true;
-  const { tabState = {} } = await chrome.storage.session.get('tabState');
-  for (const [id, state] of Object.entries(tabState)) if (!tabs.has(Number(id))) tabs.set(Number(id), state);
+// One shared promise: every caller waits for the same load, so restored hits are never dropped or reordered.
+function restore() {
+  restoring ||= chrome.storage.session.get(null).then(all => {
+    for (const [k, state] of Object.entries(all || {})) {
+      const m = /^tab:(\d+)$/.exec(k);
+      if (m && !tabs.has(Number(m[1]))) tabs.set(Number(m[1]), state);
+    }
+    if (all?.tabState) chrome.storage.session.remove('tabState').catch(() => {}); // pre-1.0 single-key format
+  }).catch(() => {});
+  return restoring;
 }
 
-function persistSoon() {
+function markDirty(tabId) {
+  if (tabId !== undefined) dirty.add(tabId);
   clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    chrome.storage.session.set({ tabState: Object.fromEntries(tabs) }).catch(() => {});
-  }, 500);
+  persistTimer = setTimeout(flush, 500);
+}
+
+// Writes changed tabs. If a tab no longer fits the session quota, drop its raw request bodies (HAR only) and retry.
+async function flush() {
+  const ids = [...dirty];
+  dirty.clear();
+  for (const id of ids) {
+    const state = tabs.get(id);
+    if (!state) { await chrome.storage.session.remove(tabKey(id)).catch(() => {}); continue; }
+    try {
+      await chrome.storage.session.set({ [tabKey(id)]: state });
+    } catch {
+      state.hits.forEach(h => { delete h.body; });
+      state.dl = state.dl.slice(-100);
+      await chrome.storage.session.set({ [tabKey(id)]: state }).catch(() => {});
+    }
+  }
+}
+
+// Kept for call sites that changed several tabs at once.
+function persistSoon(tabId) {
+  if (tabId === undefined) tabs.forEach((_, id) => dirty.add(id));
+  markDirty(tabId);
 }
 
 function broadcast(msg) {
@@ -58,7 +87,7 @@ function newState(url) {
 
 // User-defined providers, cached so the synchronous webRequest listener can use them.
 let customProviders = [];
-getSettings().then(s => { customProviders = s.customProviders || []; });
+const settingsReady = getSettings().then(s => { customProviders = s.customProviders || []; }).catch(() => {});
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.settings) customProviders = changes.settings.newValue?.customProviders || [];
 });
@@ -80,7 +109,7 @@ function recordDelivery(details, outcome) {
   const matched = state ? state.hits.filter(h => h.requestId === details.requestId) : [];
   if (matched.length) {
     matched.forEach(h => { h.delivery = delivery; });
-    persistSoon();
+    persistSoon(details.tabId);
     broadcast({ type: 'hits-updated', tabId: details.tabId });
   } else {
     pendingDelivery.set(details.requestId, delivery);
@@ -103,18 +132,21 @@ function updateBadge(tabId) {
 
 chrome.action.setBadgeBackgroundColor?.({ color: '#2f5bea' }).catch?.(() => {});
 
-async function onNavigate(tabId, url, ts = Date.now()) {
+async function onNavigate(tabId, url, ts = Date.now(), requestId = null) {
   const { preserveLog } = await getSettings();
   const keep = preserveLog && !scanTabs.has(tabId);
+  const last = tabs.get(tabId)?.hits.at(-1);
+  // Redirect hops (http → https → www) reuse the requestId: one navigation, one marker.
+  if (keep && requestId && last?.kind === 'nav' && last.requestId === requestId) { last.url = url; tabs.get(tabId).url = url; persistSoon(tabId); return; }
   if (!keep || !tabs.has(tabId)) tabs.set(tabId, newState(url));
   if (keep) {
     // Navigation markers split the preserved log into pages (funnel steps).
     const state = tabs.get(tabId);
-    state.hits.push({ kind: 'nav', url, ts });
+    state.hits.push({ kind: 'nav', url, ts, requestId });
     state.url = url;
     if (state.hits.length > MAX_HITS_PER_TAB) state.hits.splice(0, state.hits.length - MAX_HITS_PER_TAB);
   }
-  persistSoon();
+  persistSoon(tabId);
   updateBadge(tabId);
   broadcast({ type: 'tab-reset', tabId });
 }
@@ -124,13 +156,23 @@ chrome.webRequest.onBeforeRequest.addListener(
   details => {
     if (details.tabId < 0) return;
     if (details.type === 'main_frame') {
-      restore().then(() => onNavigate(details.tabId, details.url, details.timeStamp));
+      restore().then(() => onNavigate(details.tabId, details.url, details.timeStamp, details.requestId));
       return;
     }
     const body = decodeBody(details.requestBody);
-    let found = classifyRequest({ url: details.url, method: details.method, body });
-    if (!found.length && customProviders.length) found = classifyCustom(details.url, body, customProviders);
-    if (!found.length) return;
+    const found = classifyRequest({ url: details.url, method: details.method, body });
+    if (found.length) { record(details, body, found); return; }
+    // Custom providers load asynchronously; the request that woke the worker still gets checked.
+    settingsReady.then(() => {
+      const custom = customProviders.length ? classifyCustom(details.url, body, customProviders) : [];
+      if (custom.length) record(details, body, custom);
+    });
+  },
+  { urls: ['<all_urls>'] },
+  ['requestBody'],
+);
+
+function record(details, body, found) {
     starts.set(details.requestId, details.timeStamp);
     trimMap(starts);
     restore().then(() => {
@@ -146,14 +188,11 @@ chrome.webRequest.onBeforeRequest.addListener(
         const raw = i === 0 && body ? { body: body.slice(0, MAX_BODY_CHARS) } : {};
         state.hits.push({ ...h, ...raw, method: details.method, ts: details.timeStamp, frameId: details.frameId, requestId: details.requestId, delivery });
       });
-      persistSoon();
+      persistSoon(details.tabId);
       updateBadge(details.tabId);
       broadcast({ type: 'hits-updated', tabId: details.tabId });
     });
-  },
-  { urls: ['<all_urls>'] },
-  ['requestBody'],
-);
+}
 
 // Did the vendor endpoint accept the hit? Status, timing, and network errors (ad blockers show up as ERR_BLOCKED_BY_CLIENT).
 chrome.webRequest.onCompleted.addListener(
@@ -166,17 +205,20 @@ chrome.webRequest.onErrorOccurred.addListener(
 );
 
 chrome.tabs.onRemoved.addListener(tabId => {
-  tabs.delete(tabId);
-  persistSoon();
+  restore().then(() => {
+    tabs.delete(tabId);
+    persistSoon(tabId);
+    chrome.declarativeNetRequest?.updateSessionRules({ removeRuleIds: [GPC_RULE_ID + tabId] }).catch(() => {});
+  });
 });
 
 chrome.runtime.onInstalled.addListener(details => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-  chrome.alarms.create(MONITOR_ALARM, { periodInMinutes: 60 });
+  scheduleMonitorTick();
   // First install only (not updates): open the getting-started page. tabs.create needs no "tabs" permission.
   if (details.reason === 'install') chrome.tabs.create({ url: LINKS.welcome('welcome') }).catch(() => {});
 });
-chrome.runtime.onStartup.addListener(() => chrome.alarms.create(MONITOR_ALARM, { periodInMinutes: 60 }));
+chrome.runtime.onStartup.addListener(() => scheduleMonitorTick());
 
 async function inject(tabId, func, args = []) {
   try {
@@ -272,6 +314,8 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
       cookiesAfter = await cookieTable(url);
     } finally {
       await setGpc(tabId, false);
+      // Leave the tab as the user had it: reload once more without the GPC signal.
+      await reloadAndSettle(tabId).catch(() => {});
     }
   } else if (consentTest && probe) {
     const acceptTs = Date.now();
@@ -359,7 +403,7 @@ async function runScan(urls, { consentTest = false, freshVisitor = false, monito
     } catch (e) {
       pages.push({ url: list[i], score: 0, findings: [{ id: 'scan-error', severity: 'warning', title: 'Page could not be scanned', detail: String(e?.message || e), fix: '' }], platforms: {}, consent: null, counts: { critical: 0, warning: 1, info: 0, pass: 0 } });
     } finally {
-      if (tab?.id) { scanTabs.delete(tab.id); tabs.delete(tab.id); chrome.tabs.remove(tab.id).catch(() => {}); }
+      if (tab?.id) { scanTabs.delete(tab.id); tabs.delete(tab.id); persistSoon(tab.id); chrome.tabs.remove(tab.id).catch(() => {}); }
     }
   }
   const audit = {
@@ -374,48 +418,80 @@ async function runScan(urls, { consentTest = false, freshVisitor = false, monito
     monitorId,
     truncated: urls.length > list.length ? urls.length - list.length : 0,
   };
-  await saveAudit(audit);
+  let saved;
+  try {
+    saved = await saveAudit(audit);
+  } catch (e) {
+    progress({ type: 'scan-done', error: String(e?.message || e) });
+    throw e;
+  }
   progress({ type: 'scan-progress', done: list.length, total: list.length });
-  progress({ type: 'scan-done', auditId: audit.id });
-  return audit;
+  progress({ type: 'scan-done', auditId: saved.id });
+  return saved;
 }
 
 // ---- Monitoring -------------------------------------------------------------------------
 const FREQ_MS = { daily: 24 * 3600e3, weekly: 7 * 24 * 3600e3 };
 
+// alarms and notifications are optional permissions, granted when the user enables monitoring.
+function scheduleMonitorTick() {
+  chrome.alarms?.create(MONITOR_ALARM, { periodInMinutes: 60 });
+}
+
+let monitorsRunning = false;
+
 async function runDueMonitors() {
-  if ((await getPlan()) !== 'pro') return;
-  const monitors = await listMonitors();
-  const now = Date.now();
-  for (const m of monitors) {
-    if (!m.enabled || now - (m.lastRun || 0) < (FREQ_MS[m.frequency] || FREQ_MS.weekly)) continue;
-    m.lastRun = now;
-    await saveMonitors(monitors);
-    const audit = await enqueueScan(m.urls, { consentTest: m.consentTest, freshVisitor: false, monitorId: m.id, silent: true });
-    const previous = findPrevious(await listAudits(), audit);
-    const diff = previous ? diffFindings(previous.site.findings, audit.site.findings) : null;
-    const newProblems = diff ? diff.added.filter(f => f.severity === 'critical' || f.severity === 'warning') : [];
-    m.lastAuditId = audit.id;
-    m.lastScore = audit.site.score;
-    await saveMonitors(monitors);
-    if (newProblems.length || (previous && audit.site.score < previous.site.score - 5)) {
-      chrome.notifications.create(`monitor:${audit.id}`, {
-        type: 'basic',
-        iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-        title: `Tracking changed on ${m.host}`,
-        message: newProblems.length
-          ? `${newProblems.length} new issue${newProblems.length > 1 ? 's' : ''}: ${newProblems.slice(0, 2).map(f => f.title).join('; ')}`
-          : `Score dropped from ${previous.site.score} to ${audit.site.score}.`,
-        priority: 2,
-      });
+  if (monitorsRunning || (await getPlan()) !== 'pro') return;
+  monitorsRunning = true;
+  try {
+    const monitors = await listMonitors();
+    const now = Date.now();
+    for (const m of monitors) {
+      if (!m.enabled || now - (m.lastRun || 0) < (FREQ_MS[m.frequency] || FREQ_MS.weekly)) continue;
+      try {
+        await runMonitor(m, monitors, now);
+      } catch { /* one failing monitor (e.g. storage full) must not stop the others */ }
     }
+  } finally {
+    monitorsRunning = false;
   }
 }
 
-chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === MONITOR_ALARM) runDueMonitors(); });
-chrome.notifications.onClicked.addListener(id => {
-  if (id.startsWith('monitor:')) chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(id.slice(8))}`) });
-});
+async function runMonitor(m, monitors, now) {
+  m.lastRun = now;
+  await saveMonitors(monitors);
+  const audit = await enqueueScan(m.urls, { consentTest: m.consentTest, freshVisitor: false, monitorId: m.id, silent: true });
+  const previous = findPrevious(await listAudits(), audit);
+  const diff = previous ? diffFindings(previous.site.findings, audit.site.findings) : null;
+  const newProblems = diff ? diff.added.filter(f => f.severity === 'critical' || f.severity === 'warning') : [];
+  m.lastAuditId = audit.id;
+  m.lastScore = audit.site.score;
+  await saveMonitors(monitors);
+  if (chrome.notifications && (newProblems.length || (previous && audit.site.score < previous.site.score - 5))) {
+    chrome.notifications.create(`monitor:${audit.id}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title: `Tracking changed on ${m.host}`,
+      message: newProblems.length
+        ? `${newProblems.length} new issue${newProblems.length > 1 ? 's' : ''}: ${newProblems.slice(0, 2).map(f => f.title).join('; ')}`
+        : `Score dropped from ${previous.site.score} to ${audit.site.score}.`,
+      priority: 2,
+    });
+  }
+}
+
+// Listeners for optional APIs: attach now if already granted, or as soon as the permission is added.
+let monitorListeners = false;
+function attachMonitorListeners() {
+  if (monitorListeners || !chrome.alarms) return;
+  monitorListeners = true;
+  chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === MONITOR_ALARM) runDueMonitors(); });
+  chrome.notifications?.onClicked.addListener(id => {
+    if (id.startsWith('monitor:')) chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(id.slice(8))}`) });
+  });
+}
+attachMonitorListeners();
+chrome.permissions.onAdded.addListener(() => { attachMonitorListeners(); scheduleMonitorTick(); });
 
 // ---- Messages ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -427,7 +503,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (!tabs.has(tabId)) tabs.set(tabId, newState(sender.tab.url || ''));
       const state = tabs.get(tabId);
       state.frames = { ...(state.frames || {}), [sender.frameId]: msg.url };
-      persistSoon();
+      persistSoon(tabId);
     });
     return false;
   }
@@ -441,7 +517,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const state = tabs.get(tabId);
       state.dl.push(sandbox ? { ...msg.event, frame: 'shopify-sandbox' } : msg.event);
       if (state.dl.length > MAX_DL_PER_TAB) state.dl.shift();
-      persistSoon();
+      persistSoon(tabId);
       broadcast({ type: 'dl-updated', tabId });
     });
     return false;
@@ -455,8 +531,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return { url: s?.url || '', hits: tagSources(s?.hits || [], s), dl: s?.dl || [] };
       }
       case 'clear-tab': {
+        await restore();
         tabs.set(msg.tabId, newState(tabs.get(msg.tabId)?.url || ''));
-        persistSoon();
+        persistSoon(msg.tabId);
         updateBadge(msg.tabId);
         return { ok: true };
       }

@@ -52,7 +52,7 @@ once with the `Sec-GPC: 1` header (a temporary declarativeNetRequest rule limite
 | Data | Where | How long |
 |---|---|---|
 | Live tracking requests and dataLayer pushes for each tab | `chrome.storage.session` (memory, never written to disk by Chrome) | Reset when the tab navigates (unless you turn on "Preserve log"), deleted when the tab closes, and gone when the browser quits |
-| Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names and metadata (no values) | `chrome.storage.local` on your device | Until you delete them in History. The Free plan keeps the last 5, Pro the last 500 |
+| Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names and metadata (no values) | `chrome.storage.local` on your device | Until you delete them in History. The Free plan keeps the last 5 (the planned Pro plan, 500) |
 | Report notes and "Prepared for" text you type | `chrome.storage.local` | Stored with the audit |
 | Report branding you enter (agency name, contact line, colour, logo, call-to-action link) | `chrome.storage.local` | Until you change it or remove the extension |
 | Monitors you set up (URLs, schedule) and settings, including ID labels and custom providers | `chrome.storage.local` | Until you remove them |
@@ -62,11 +62,12 @@ once with the `Sec-GPC: 1` header (a temporary declarativeNetRequest rule limite
 audited website itself sends to its vendors (for example an email address a site leaks into a pixel). Those raw values
 are only held in session storage for the live Requests and dataLayer tabs, and in any CSV/JSON/HAR file you choose to
 export. Saved audits and client reports record only the **name** of the parameter that contained personal data, never
-the value.
+the value, and email addresses in saved page URLs are replaced with `[email]`. Other query-string parameters in page
+URLs are kept as visited.
 
 ## What it sends
 
-Nothing. The extension makes no network requests of its own and has no server to receive data. Reports, CSV, JSON and HAR
+The extension sends no data to The Growth Folks® or anyone else and has no server to receive data. The only pages it loads are the ones you ask it to scan or monitor and, once after install, a welcome page. Reports, CSV, JSON and HAR
 files are generated locally and only leave your computer if you choose to download, print or share them.
 
 The extension opens links to thegrowthfolks.com (help, privacy, the welcome page after install, and an optional credit
@@ -76,7 +77,7 @@ the interface; they contain no audit data. Pages on thegrowthfolks.com are cover
 ## Optional permissions and actions you trigger
 
 - **Multi-page scans and monitoring** open the URLs you enter in background tabs and close them afterwards.
-  Scheduled monitoring (Pro) re-runs those scans in the background on the schedule you set and shows a desktop
+  Scheduled monitoring (planned Pro feature; it asks for the optional alarms and notifications permissions) re-runs those scans in the background on the schedule you set and shows a desktop
   notification when results change.
 - **Fresh visitor mode** asks for the optional `browsingData` permission and, only for the sites you are scanning,
   deletes their cookies, local storage, IndexedDB and service workers before the scan (you will be logged out of

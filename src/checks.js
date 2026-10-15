@@ -8,7 +8,8 @@ import { validateGa4, validateMeta, validateTiktok, validateDataLayer, validateC
 export const SEVERITY = { critical: 'critical', warning: 'warning', info: 'info', pass: 'pass' };
 const PENALTY = { critical: 15, warning: 6, info: 0, pass: 0 };
 
-const EMAIL_RE = /[A-Z0-9._%+-]+(?:@|%40)[A-Z0-9.-]+\.[A-Z]{2,}/i;
+// Excludes retina asset names like shirt@2x.jpg.
+const EMAIL_RE = /[A-Z0-9._%+-]+(?:@|%40)[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.(?!(?:png|jpe?g|gif|webp|svg|avif)\b)[A-Z]{2,}\b/i;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
 const PAGE_VIEW_EVENTS = { ga4: 'page_view', meta: 'PageView', tiktok: 'Pageview', snapchat: 'PAGE_VIEW', reddit: 'PageVisit', x: 'pageview', uet: 'pageLoad', pinterest: 'pagevisit' };
 const GOOGLE_CONSENT_PLATFORMS = new Set(['ga4', 'gads']);
@@ -141,9 +142,15 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   // --- Duplicate page views -------------------------------------------------------------
   for (const [platform, eventName] of Object.entries(PAGE_VIEW_EVENTS)) {
     const pv = tagHits.filter(h => h.platform === platform && h.event === eventName);
-    const byKey = groupBy(pv, h => `${h.id}|${platform === 'ga4' ? (h.params.dl || '') : (h.params.dl || h.params['context.page.url'] || h.params.p || h.params.url || '')}`);
+    // X and Snap send each event to two hosts (t.co + analytics.twitter.com, tr + tr-shadow): count per host.
+    const hostOf = h => { try { return ['x', 'snapchat'].includes(platform) ? new URL(h.url).hostname : ''; } catch { return ''; } };
+    const pageOf = h => (platform === 'ga4' ? (h.params.dl || '') : (h.params.dl || h.params['context.page.url'] || h.params.p || h.params.url || h.params.tw_document_href || h.params.pu || ''));
+    const byKey = groupBy(pv, h => `${h.id}|${pageOf(h)}|${hostOf(h)}`);
     let dupes = false;
-    for (const [key, list] of byKey) {
+    for (const [key, all] of byKey) {
+      // A duplicate is a second page view within 2 s for the same page; SPA route changes later on are legitimate.
+      const sorted = [...all].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const list = sorted.filter((h, i) => i === 0 || (h.ts || 0) - (sorted[i - 1].ts || 0) < 2000);
       if (list.length > 1) {
         dupes = true;
         const id = key.split('|')[0];
@@ -212,11 +219,16 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   // --- Consent Mode ---------------------------------------------------------------------
   if (hasGoogle) {
     if (!consent.implemented) {
-      findings.push(finding('consent-missing', SEVERITY.critical, 'Google Consent Mode not implemented',
-        'Google tags run without any consent signals. Since March 2024 Google requires Consent Mode v2 for ad personalization and remarketing on EEA/UK traffic.',
+      // Critical when Google is actually collecting (GA4/Ads hits) or the site clearly targets consent (a CMP);
+      // a bare GTM load on a non-EU site is only a warning.
+      const collecting = tagHits.some(h => GOOGLE_CONSENT_PLATFORMS.has(h.platform));
+      findings.push(finding('consent-missing', collecting || consent.cmps.length ? SEVERITY.critical : SEVERITY.warning, 'Google Consent Mode not implemented',
+        'Google tags run without any consent signals. Since March 2024 Google requires Consent Mode v2 for ad personalization and remarketing on EEA/UK traffic (required if the site has EEA/UK visitors).',
         'Add a consent default (all denied for EEA/UK) before any Google tag fires, and wire your CMP to send consent updates. Most CMPs have a GTM template that does both.'));
     } else {
-      const missingV2 = V2_SIGNALS.filter(s => consent.signals[s].default === null && consent.signals[s].update === null);
+      // gcd letters this tool doesn't know yet mean the signal is present in some state: not "missing".
+      const unknownLetter = s => tagHits.some(h => h.consent?.gcdParsed?.[s]?.effective === 'unknown');
+      const missingV2 = V2_SIGNALS.filter(s => consent.signals[s].default === null && consent.signals[s].update === null && !unknownLetter(s));
       if (missingV2.length) {
         findings.push(finding('consent-v1-only', SEVERITY.critical, 'Consent Mode v1 only: v2 signals missing',
           `Not set: ${missingV2.join(', ')}. Without these, Google Ads treats EEA/UK users as non-consented for audiences and personalization.`,
@@ -231,12 +243,15 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
       });
       const dl = consent.dataLayer;
       const dlLate = dl.defaultIndex > -1 && dl.firstTagCommandIndex > -1 && dl.defaultIndex > dl.firstTagCommandIndex;
-      if (consent.wasSetLate || updateWithoutDefault || dlLate) {
-        findings.push(finding('consent-default-late', SEVERITY.critical, 'Consent default is set too late (or not at all)',
-          updateWithoutDefault
-            ? 'Hits carry a consent update but no default, so tags fired before any default existed.'
-            : 'The consent default runs after Google tags have already been configured.',
+      if (consent.wasSetLate || dlLate) {
+        findings.push(finding('consent-default-late', SEVERITY.critical, 'Consent default is set too late',
+          'The consent default runs after Google tags have already been configured.',
           'Move the consent default above the GTM/gtag snippet, or fire the CMP template on the "Consent Initialization – All Pages" trigger.'));
+      } else if (updateWithoutDefault) {
+        // Region-scoped defaults (e.g. EEA only) look like "no default" when audited from outside that region.
+        findings.push(finding('consent-no-default-here', SEVERITY.info, 'No consent default applies in your location',
+          'Hits carry a consent update but no default. That is expected if the default is region-scoped (e.g. EEA/UK only) and you are auditing from elsewhere; otherwise tags fire before any default exists.',
+          'Re-run the audit from an EEA/UK IP (VPN). If hits still show no default, add one before the GTM/gtag snippet.'));
       }
 
       const adDefault = consent.signals.ad_storage.default;
@@ -250,7 +265,8 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
 
   // Non-Google pixels have no Consent Mode; they must be gated by the CMP itself.
   if (hasAdPixels && consent.signals.ad_storage.effective === 'denied') {
-    const firing = AD_PIXELS.filter(p => tagHits.some(h => h.platform === p));
+    // UET hits with asc=D are Microsoft's own cookieless consent mode: they respect consent.
+    const firing = AD_PIXELS.filter(p => tagHits.some(h => h.platform === p && !(p === 'uet' && h.consent?.uet === 'denied')));
     if (firing.length) {
       findings.push(finding('pixels-ignore-consent', SEVERITY.critical, `${firing.map(p => PLATFORM_LABELS[p]).join(' and ')} ${firing.length > 1 ? 'fire' : 'fires'} while ad consent is denied`,
         'Google tags see ad_storage = denied, yet these pixels still send events. Consent Mode only governs Google tags; other pixels must be blocked by the CMP.',
@@ -285,7 +301,11 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   }
 
   // --- Event / ecommerce validation, dataLayer hygiene, cookies --------------------------
-  const allHits = [...tagHits, ...postHits.filter(h => h.kind === 'hit')];
+  // GPC reloads the page, and some CMPs reload on accept: drop post-consent hits that repeat a pre-consent event,
+  // so the same purchase or conversion is not counted twice.
+  const eventKey = h => `${h.platform}|${h.id}|${h.event}|${h.params?.['ep.transaction_id'] || h.params?.eid || h.params?.event_id || h.params?.dl || ''}`;
+  const preKeys = new Set(tagHits.map(eventKey));
+  const allHits = consentTest?.mode === 'gpc' ? tagHits : [...tagHits, ...postHits.filter(h => h.kind === 'hit' && !preKeys.has(eventKey(h)))];
   findings.push(...validateGa4(allHits), ...validateMeta(allHits), ...validateTiktok(allHits), ...validateCrossPlatform(allHits));
   findings.push(...validateDataLayer(dlLog, probe));
   findings.push(...validateCookies(probe, consent.signals, cookies));

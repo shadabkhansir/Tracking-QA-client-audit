@@ -103,9 +103,15 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
 
   // Google Ads conversion / remarketing pings carry gcs/gcd too.
   const ads = path.match(/\/pagead\/(?:viewthrough)?conversion\/(\d+)/);
-  if (ads && /googleadservices\.com$|doubleclick\.net$|google\.com$/.test(host)) {
+  if (ads && /(^|\.)(googleadservices\.com|doubleclick\.net|google\.com)$/.test(host)) {
     const params = { ...qs, ...formOrJson(body) };
     return [{ platform: 'gads', kind: 'hit', id: `AW-${ads[1]}`, event: params.label ? 'conversion' : 'remarketing', params, consent: parseGoogleConsent(params), url, userData: parseUserData(params.em) }];
+  }
+
+  // Google Ads conversion modelling / consent pings (www.google.com/ccm/collect).
+  if (/\/ccm\/collect$/.test(path) && /(^|\.)google\.[a-z.]+$/.test(host)) {
+    const params = { ...qs, ...formOrJson(body) };
+    return [{ platform: 'gads', kind: 'hit', id: params.tid || null, event: params.en || 'ccm', params, consent: parseGoogleConsent(params), url }];
   }
 
   // Meta Pixel.
@@ -134,7 +140,7 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
     const out = events
       .map(ev => {
         const id = ev?.context?.pixel?.code || ev?.pixel_code || qs.sdkid || null;
-        return { platform: 'tiktok', kind: 'hit', id, event: ev?.event ?? null, params: flattenForScan(ev), consent: null, url, firstParty: !tiktokHost };
+        return { platform: 'tiktok', kind: 'hit', id, event: typeof ev?.event === 'string' ? ev.event : null, params: flattenForScan(ev), consent: null, url, firstParty: !tiktokHost };
       })
       // On first-party hosts require a TikTok-shaped payload.
       .filter(h => (tiktokHost ? (h.id || h.event) : h.id));
@@ -209,7 +215,11 @@ function classifyOtherPixels(u, qs, body, url) {
 
 // Google user-provided data (Enhanced Conversions): em=tv.1~em.<hash>~ph.<hash>~fn.<hash>...
 // Returns which fields are present and whether any value looks like clear text instead of a hash.
-const HASH_RE = /^([a-f0-9]{64}|[A-Za-z0-9_-]{43}=?)$/;
+// Hex SHA-256, or base64/base64url (a raw "+" may arrive as a space after query decoding).
+const HASH_RE = /^([a-f0-9]{64}|[A-Za-z0-9_\-+/ ]{43}={0,2})$/;
+// Google sends city, region, postal code and country unhashed by design.
+const PLAIN_OK = new Set(['co', 'pc', 'ct', 'rg']);
+const baseKey = k => k.replace(/\d+$/, '');
 export function parseUserData(em) {
   if (typeof em !== 'string' || !em) return null;
   let raw = em;
@@ -224,8 +234,9 @@ export function parseUserData(em) {
   }
   const keys = Object.keys(fields);
   if (!keys.length) return null;
-  const clearText = keys.filter(k => fields[k] && !HASH_RE.test(fields[k]));
-  return { fields: keys, clearText, hasEmail: 'em' in fields, hasPhone: 'ph' in fields, hasAddress: ['fn', 'ln', 'pc', 'co', 'ct', 'sa', 'rg'].some(k => k in fields) };
+  const clearText = keys.filter(k => fields[k] && !PLAIN_OK.has(baseKey(k)) && !HASH_RE.test(fields[k]));
+  const has = names => keys.some(k => names.includes(baseKey(k)));
+  return { fields: keys, clearText, hasEmail: has(['em']), hasPhone: has(['ph']), hasAddress: has(['fn', 'ln', 'pc', 'co', 'ct', 'sa', 'rg']) };
 }
 
 // User-defined providers from Settings: { name, match, idParam, eventParam }. `match` is a substring, or /regex/.

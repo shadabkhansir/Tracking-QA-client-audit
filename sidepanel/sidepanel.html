@@ -53,7 +53,7 @@
   <!-- Requests -->
   <section id="tab-requests" class="tab-panel" hidden>
     <div class="row tight">
-      <input type="search" id="hit-search" placeholder="Search events, IDs, parameters…">
+      <input type="search" id="hit-search" aria-label="Search requests" placeholder="Search events, IDs, parameters…">
     </div>
     <div class="chips" id="chips"></div>
     <div class="row tight">
@@ -93,8 +93,8 @@
 
   <!-- Monitor -->
   <section id="tab-monitor" class="tab-panel" hidden>
-    <p class="small">Re-scan client sites on a schedule and get a desktop alert when tracking breaks or the score drops. <span class="badge pro">Pro</span></p>
-    <div id="monitor-locked" class="card" hidden>Monitoring is a Pro feature. <a href="#" id="monitor-upgrade" class="link">See plans</a></div>
+    <p class="small">Re-scan client sites on a schedule and get a desktop alert when tracking breaks or the score drops. <span class="badge pro">Pro</span> Runs while Chrome is open.</p>
+    <div id="monitor-locked" class="card" hidden>Scheduled monitoring is coming soon in Pro.</div>
     <div id="monitor-form">
       <label for="mon-urls" class="small">URLs to monitor</label>
       <textarea id="mon-urls" rows="4" placeholder="https://client.com/&#10;https://client.com/checkout/thank-you"></textarea>
@@ -111,7 +111,7 @@
 
   <!-- History -->
   <section id="tab-history" class="tab-panel" hidden>
-    <div class="row tight"><span class="spacer"></span><label class="secondary sm btn-file">Import audit (.json)<input type="file" id="import-audit" accept="application/json,.json" hidden></label></div>
+    <div class="row tight"><span class="spacer"></span><label class="secondary sm btn-file" tabindex="0">Import audit (.json)<input type="file" id="import-audit" accept="application/json,.json" class="visually-hidden"></label></div>
     <ul id="history" class="history"></ul>
     <p class="muted small" id="history-limit"></p>
   </section>

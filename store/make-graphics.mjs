@@ -89,7 +89,7 @@ const resultWithTest = { ...runChecks({ url: probe.url, hits, probe, postHits: [
 const audit = { id: 'demo-1', type: 'page', host: 'shop.example.com', url: probe.url, createdAt: T0 + 5000, result: resultWithTest, preparedFor: 'Example Shop', notes: 'Purchase tracking is close. The critical items below block accurate ROAS in Meta and TikTok; we can fix them in the next GTM release.' };
 
 const storageFixture = {
-  plan: 'pro',
+  plan: 'free', // store screenshots must show what store users get (Pro is not purchasable yet)
   settings: { preserveLog: false, showCredit: true },
   brand: { agencyName: 'Northwind Analytics', brandColor: '#1f6b4f', logoDataUrl: '', contact: 'hello@northwind.example · northwind.example', preparedFor: 'Example Shop', ctaText: 'Book a 15-min fix call', ctaUrl: 'https://example.com/book' },
   audits: [audit, { ...audit, id: 'demo-0', createdAt: T0 - 7 * 864e5, result }],
@@ -252,11 +252,11 @@ for (const [k, v] of Object.entries(shots)) await writeFile(path.join(here, 'sou
 
 const panelW = 400;
 const screens = [
-  { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
+  { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags plus delivery status', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
   { shot: shots.consent, shotWidth: panelW, eyebrow: 'Consent stress test', headline: 'Prove consent <em>actually works</em>', sub: 'Click "Accept all" or "Reject all" on the cookie banner and compare what every pixel sent before and after.', bullets: ['OneTrust, Cookiebot, Usercentrics, Didomi, Complianz', 'Flags pixels that fire after "Reject all"', 'Google consent signals before and after'] },
   { shot: shots.requests, shotWidth: panelW, eyebrow: 'Request inspector', headline: 'Every tracking hit, <em>decoded</em>', sub: 'Readable parameter names, parsed GA4 items and consent strings, with filters, search and CSV/JSON export.' },
   { shot: shots.datalayer, shotWidth: panelW, eyebrow: 'dataLayer timeline', headline: 'Every dataLayer push, <em>in order</em>', sub: 'Captured from the first line of the page, even pushes made before GTM loads. Overwrites are flagged.' },
-  { shot: shots.report, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a report with <em>your</em> brand on it', sub: 'Executive summary, fixes, consent results and changes since the last audit. Print to PDF or export CSV.' },
+  { shot: shots.report, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a <em>client-ready</em> report', sub: 'Executive summary, fixes, consent results and changes since the last audit. Print to PDF or export CSV.' },
 ];
 
 for (let i = 0; i < screens.length; i++) {

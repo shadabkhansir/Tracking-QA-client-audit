@@ -22,7 +22,7 @@ The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing 
 - **dataLayer tab**: every push in order, captured from `document_start`, so it survives GTM replacing `push()`. Flags `dataLayer = []` overwrites.
 - **Funnel mode**: audits a whole preserved session (product → cart → checkout → thank-you).
 - **Multi-page scan**: background tabs as a first-time visitor who hasn't consented. Optional "fresh visitor" mode clears that site's cookies first; it uses the optional `browsingData` permission.
-- **Monitoring (Pro)**: daily or weekly re-scans through `chrome.alarms`, with a desktop notification when new issues appear or the score drops.
+- **Monitoring (planned Pro)**: daily or weekly re-scans through `chrome.alarms`, with a desktop notification when new issues appear or the score drops.
 - **Client report**:
   - branded and print-to-PDF
   - executive summary, findings with fixes
@@ -92,7 +92,7 @@ That log survives a page overwriting `window.dataLayer`. CMP templates in GTM se
 
 ## Free vs Pro
 
-| | Free | Pro |
+| | Free | Pro (planned) |
 |---|---|---|
 | Live checks | ✓ | ✓ |
 | Client report | Watermarked, default branding | Your logo, colour, contact, no watermark |
@@ -100,7 +100,7 @@ That log survives a page overwriting `window.dataLayer`. CMP templates in GTM se
 | Saved audits | 5 | 500 |
 | Scheduled monitoring + alerts | – | ✓ |
 
-Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
+Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md). Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
 
 ## Develop
 

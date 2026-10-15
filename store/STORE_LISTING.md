@@ -1,7 +1,7 @@
 # Chrome Web Store listing: Tracking QA & Client Audit by The Growth Folks®
 
 Copy-paste source for the Chrome Web Store Developer Dashboard. Everything below was checked against the code in
-this repo (manifest v0.3.0).
+this repo (manifest v1.0.0).
 
 ---
 
@@ -13,10 +13,10 @@ this repo (manifest v0.3.0).
 Tracking QA & Client Audit by The Growth Folks®
 ```
 
-**Summary** (manifest `description`, 124/132 chars)
+**Summary** (manifest `description`, 112/132 chars)
 
 ```
-Audit GA4, GTM, Meta, TikTok and 10 more tags plus Consent Mode v2, then send clients a branded report. By The Growth Folks®
+Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then send clients a polished report.
 ```
 
 **Category:** Developer Tools (alternative: Productivity)
@@ -64,6 +64,9 @@ CLIENT-READY REPORTS
 
 WHO IT'S FOR
 Agencies, freelance analysts, in-house marketers and developers who set up or maintain GA4, GTM and ad pixels and need to prove tracking and consent work.
+
+FREE VERSION
+Every check, the inspectors, consent and GPC tests, funnel audits and exports are free. Multi-page scans cover up to 3 pages at a time, the last 5 audits are kept, and reports carry a small credit line. A Pro plan with white-label reports, larger scans and monitoring is planned.
 
 PRIVACY
 Everything runs in your browser. The extension has no server, no analytics and no third-party code, and it sends no data anywhere. Saved audits stay in your browser's extension storage until you delete them. Full policy: https://thegrowthfolks.com/tools/tracking-qa/privacy
@@ -125,12 +128,12 @@ Core feature. The Requests tab and every audit rely on seeing the tracking reque
 
 **scripting**
 ```
-When the user clicks "Run audit", "Use links from this page" or runs a consent test or scan, the extension injects a bundled function (chrome.scripting.executeScript, MAIN world) into the audited tab to read its tag configuration: the dataLayer, Google's consent state (google_tag_data.ics), configured Meta/TikTok pixel IDs, which consent-management platform is present, cookie names (not values) and same-site links. For the optional consent test it clicks "Accept all" or "Reject all" on the cookie banner. All injected code ships inside the extension package.
+When the user clicks "Run audit", "Use links from this page" or runs a consent test or scan, the extension injects a bundled function (chrome.scripting.executeScript, MAIN world) into the audited tab to read its tag configuration: the dataLayer, Google's consent state (google_tag_data.ics), configured Meta/TikTok pixel IDs, which consent-management platform is present, cookie names (not values) and same-site links. For the optional consent test it clicks "Accept all" or "Reject all" on the cookie banner, and for the optional GPC test it sets and later removes a temporary sessionStorage flag on the tab under test. All injected code ships inside the extension package.
 ```
 
 **cookies**
 ```
-The audit lists the first-party cookies on the audited page with their vendor, purpose, domain and expiry, and checks whether advertising or analytics cookies exist while the visitor has not consented. chrome.cookies.getAll is called only for the URL of the tab being audited, only when the user runs an audit or scan, and only cookie names and metadata are kept; cookie values are never read into results or stored. HttpOnly cookies (such as some analytics cookies) are not visible to page scripts, which is why the cookies permission is needed.
+The audit lists the first-party cookies on the audited page with their vendor, purpose, domain and expiry, and checks whether advertising or analytics cookies exist while the visitor has not consented. chrome.cookies.getAll is called only for the URL of the tab being audited, only when the user runs an audit or a scan (including a scheduled monitor the user created), and only cookie names and metadata are kept; cookie values are never read into results or stored. HttpOnly cookies (such as some analytics cookies) are not visible to page scripts, which is why the cookies permission is needed.
 ```
 
 **declarativeNetRequestWithHostAccess**
@@ -138,14 +141,19 @@ The audit lists the first-party cookies on the audited page with their vendor, p
 Used only for the optional Global Privacy Control test the user starts from the Audit, Scan or Monitor tab. For the duration of that test the extension adds one session rule, scoped to the single tab under test, that sets the "Sec-GPC: 1" request header, reloads the page to see whether ad tags honour the opt-out signal, and then removes the rule. No other rules exist; the extension never blocks or redirects requests.
 ```
 
-**alarms**
+**unlimitedStorage**
 ```
-Powers scheduled monitoring: an hourly chrome.alarms tick checks whether any monitor the user created is due (daily or weekly) and, if so, re-scans those URLs. With no monitors configured the tick does nothing.
+Saved audits (multi-page site reports with findings, cookie tables and page lists) and their before/after history are kept locally in chrome.storage.local. A single 50-page site audit can be close to 1 MB, so the default 10 MB quota fills after a dozen audits and saves would start failing. Nothing is synced or sent off the device; users delete audits in the History tab.
 ```
 
-**notifications**
+**alarms (optional permission)**
 ```
-Shows a desktop notification when a scheduled monitoring scan finds new tracking problems or the site's audit score drops, so the user learns that a client's tracking broke without opening the extension. Clicking the notification opens that audit's report. No other notifications are sent.
+Requested only when the user adds a scheduled monitor in the Monitor tab. Powers scheduled monitoring: an hourly chrome.alarms tick checks whether any monitor the user created is due (daily or weekly) and, if so, re-scans those URLs. Not requested by users who never set up monitoring.
+```
+
+**notifications (optional permission)**
+```
+Requested together with alarms when the user adds a scheduled monitor. Shows a desktop notification when a scheduled monitoring scan finds new tracking problems or the site's audit score drops. Clicking the notification opens that audit's report. No other notifications are sent.
 ```
 
 **browsingData (optional permission)**
@@ -155,12 +163,12 @@ Requested only when the user ticks "Fresh visitor" in the Scan tab, and only aft
 
 **Host permission: <all_urls>**
 ```
-Users audit their own and their clients' websites, which can be on any domain, so the extension cannot know the hosts in advance. Host access is needed to (1) observe tracking requests with webRequest, which fire to many vendor domains and to first-party server-side Tag Manager domains on the audited site; (2) inject the audit probe into the tab the user is auditing; and (3) read tab URLs so audits and the side panel show which page was checked. The extension does not read page content beyond the tag configuration listed above and sends nothing off the device.
+Users audit their own and their clients' websites, which can be on any domain, so the extension cannot know the hosts in advance. Host access is needed to (1) observe tracking requests with webRequest, which fire to many vendor domains and to first-party server-side Tag Manager domains on the audited site; (2) inject the audit probe into the tab the user is auditing; and (3) read tab URLs so audits and the side panel show which page was checked. (4) chrome.cookies and the GPC header rule also need host access to the audited site. activeTab is not sufficient because tracking requests must be captured from the start of page load, before the user opens the panel, and scans/monitors run in background tabs. The extension does not read page content beyond the tag configuration listed above and sends nothing off the device.
 ```
 
 **Content script: src/content/dl-hook.js on http://*/* and https://*/*, world MAIN, run_at document_start**
 ```
-Records dataLayer.push() calls in the order they happen for the dataLayer tab and the dataLayer checks (overwritten dataLayer, ecommerce not cleared, consent commands). It must run in the page's MAIN world at document_start because pushes made before Google Tag Manager loads, and calls after GTM replaces push(), are otherwise lost, and because window.dataLayer is only visible from the page's own JavaScript world. It only wraps dataLayer.push and the dataLayer property setter, passes every call through unchanged, and posts a sanitised copy (depth- and size-limited, functions and DOM nodes removed) to the relay script via window.postMessage. It makes no network requests and does not modify the page.
+Records dataLayer.push() calls in the order they happen for the dataLayer tab and the dataLayer checks (overwritten dataLayer, ecommerce not cleared, consent commands). It must run in the page's MAIN world at document_start because pushes made before Google Tag Manager loads, and calls after GTM replaces push(), are otherwise lost, and because window.dataLayer is only visible from the page's own JavaScript world. It does not change page content or data: it wraps dataLayer.push and the dataLayer property setter, passes every call through unchanged, and posts a sanitised copy (depth- and size-limited, functions and DOM nodes removed) to the relay script via window.postMessage. Only during a Global Privacy Control test the user starts does it make navigator.globalPrivacyControl return true for that tab. It makes no network requests.
 ```
 
 **Content scripts on Shopify custom-pixel sandboxes (http(s)://*/wpm@* and http(s)://*/web-pixels@*, all_frames)**
@@ -190,18 +198,18 @@ user's device. Recommended answers:
 
 | Data category | Tick? | Notes |
 |---|---|---|
-| Personally identifiable information | No | Not collected. If an audited site leaks e.g. an email into a pixel, saved audits keep only the parameter name. |
+| Personally identifiable information | **Yes** | Not transmitted. Raw tracking payloads of audited pages, which can contain personal data a site leaks (e.g. an email in a pixel), are held in session storage for the live inspector and in files the user exports. Saved audits redact email addresses and keep only the parameter name. |
 | Health information | No | |
 | Financial and payment information | No | |
 | Authentication information | No | |
 | Personal communications | No | |
 | Location | No | |
-| Web history | No | URLs of pages the user audits are stored locally only and never transmitted. |
+| Web history | **Yes** | URLs of pages the user audits are stored locally only and never transmitted. |
 | User activity | No | |
-| Website content | No | Tracking requests and dataLayer pushes of audited pages are processed and stored locally only. |
+| Website content | **Yes** | Tracking requests, dataLayer pushes and cookie names of audited pages are processed and stored locally only. |
 
-If you prefer the most conservative reading of the form, ticking **Website content** and **Web history** is also
-defensible (they are processed locally); in that case the certifications below still hold.
+Per the Chrome Web Store User Data FAQ, data handled only on the device must still be disclosed, so these three are
+ticked even though nothing leaves the browser.
 
 Certify all three:
 
@@ -221,7 +229,7 @@ No account or login is needed.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
 5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
-6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains report branding and the switch for the small "Made with ... by The Growth Folks®" footer credit.
+6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding is shown there but locked until the planned Pro plan launches.
 
-Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Monitoring and custom report branding are gated behind a Pro plan that is not purchasable yet; reviewers can ignore those tabs.
+Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding belong to a planned Pro plan that is not purchasable yet; the UI labels them "coming soon". The alarms and notifications permissions are optional and only requested when monitoring is enabled.
 ```

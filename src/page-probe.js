@@ -137,10 +137,16 @@ export function acceptConsent() {
     const el = document.querySelector(sel);
     if (visible(el)) { el.click(); return { accepted: true, method: `button ${sel}` }; }
   }
-  const words = /^(accept( all)?( cookies)?|allow( all)?( cookies)?|agree( to all)?|i agree|ok(ay)?, ?got it|got it|alle akzeptieren|akzeptieren|tout accepter|accepter|aceptar( todo)?|accetta( tutto)?|aceitar)$/i;
-  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]')) {
+  // Text fallback only inside something that is clearly a cookie/consent banner, so forms and unrelated
+  // "Accept"/"Agree" buttons on the audited site are never clicked.
+  const words = /^(accept( all)?( cookies)?|allow( all)?( cookies)?|agree( to all)?|i agree|alle akzeptieren|akzeptieren|tout accepter|accepter|aceptar( todo)?|accetta( tutto)?|aceitar)$/i;
+  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"]')) {
     const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
-    if (text.length < 40 && words.test(text) && visible(el)) { el.click(); return { accepted: true, method: `button "${text}"` }; }
+    if (text.length >= 40 || !words.test(text) || !visible(el)) continue;
+    const box = el.closest('[id*="cookie" i],[class*="cookie" i],[id*="consent" i],[class*="consent" i],[class*="gdpr" i],[aria-label*="cookie" i],[aria-label*="consent" i],[role="dialog"],[role="alertdialog"]');
+    if (!box || !/cookie|consent|privacy|gdpr|tracking/i.test(box.textContent || '')) continue;
+    el.click();
+    return { accepted: true, method: `button "${text}"` };
   }
   return { accepted: false, reason: 'No supported consent platform API or accept button was found on the page.' };
 }
@@ -166,9 +172,13 @@ export function rejectConsent() {
     if (visible(el)) { el.click(); return { accepted: true, method: `button ${sel}` }; }
   }
   const words = /^(reject( all)?( cookies)?|decline( all)?|deny( all)?|refuse( all)?|only (necessary|essential)( cookies)?|necessary only|alle ablehnen|ablehnen|tout refuser|refuser|rechazar( todo)?|rifiuta( tutto)?|rejeitar)$/i;
-  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"], input[type="submit"]')) {
+  for (const el of document.querySelectorAll('button, a[role="button"], [role="button"], input[type="button"]')) {
     const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
-    if (text.length < 40 && words.test(text) && visible(el)) { el.click(); return { accepted: true, method: `button "${text}"` }; }
+    if (text.length >= 40 || !words.test(text) || !visible(el)) continue;
+    const box = el.closest('[id*="cookie" i],[class*="cookie" i],[id*="consent" i],[class*="consent" i],[class*="gdpr" i],[aria-label*="cookie" i],[aria-label*="consent" i],[role="dialog"],[role="alertdialog"]');
+    if (!box || !/cookie|consent|privacy|gdpr|tracking/i.test(box.textContent || '')) continue;
+    el.click();
+    return { accepted: true, method: `button "${text}"` };
   }
   return { accepted: false, reason: 'No supported consent platform API or reject button was found on the page.' };
 }
