@@ -1,14 +1,14 @@
-# Privacy Policy: Tracking QA & Client Audit by The Growth Folks™
+# Privacy Policy: Tracking QA & Client Audit by The Growth Folks®
 
 _Last updated: 2026-10-15_
 
-Tracking QA & Client Audit ("the extension") is a Chrome extension published by The Growth Folks™. It checks the
+Tracking QA & Client Audit ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
 analytics and advertising tags on websites you choose to audit. Everything it does happens inside your own browser.
 
 ## Summary
 
 - The extension has **no server**, **no analytics**, **no ads** and **no third-party SDKs**.
-- It **does not send any data** to The Growth Folks™ or to anyone else.
+- It **does not send any data** to The Growth Folks® or to anyone else.
 - Audit data stays in your browser's extension storage until you delete it or remove the extension.
 
 ## What the extension reads
@@ -67,7 +67,7 @@ URLs are kept as visited.
 
 ## What it sends
 
-The extension sends no data to The Growth Folks™ or anyone else and has no server to receive data. The only pages it loads are the ones you ask it to scan or monitor and, once after install, a welcome page. Reports, CSV, JSON and HAR
+The extension sends no data to The Growth Folks® or anyone else and has no server to receive data. The only pages it loads are the ones you ask it to scan or monitor and, once after install, a welcome page. Reports, CSV, JSON and HAR
 files are generated locally and only leave your computer if you choose to download, print or share them.
 
 The extension opens links to thegrowthfolks.com (help, privacy, the welcome page after install, and an optional credit
@@ -99,4 +99,4 @@ a new "Last updated" date.
 
 ## Contact
 
-The Growth Folks™ · hello@thegrowthfolks.com
+The Growth Folks® · hello@thegrowthfolks.com

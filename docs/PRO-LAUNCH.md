@@ -1,15 +1,14 @@
 # Pro launch checklist (Dodo Payments)
 
 _Written 2026-10-15. Decisions are final unless you change them: $19/month or $190/year (launch offer $15/$150 for the
-first 100 customers), 7-day free trial, "Changes since last audit" is Pro, brand shown as The Growth Folks™ until the
-trade mark is registered._
+first 100 customers), 7-day free trial, "Changes since last audit" is Pro. The brand keeps "The Growth Folks®" (owner's decision)._
 
 ## 1. Dodo dashboard (you, after approval)
 
 Work in **test mode** first, then repeat in live mode (Dodo can copy products from test to live).
 
 - **Settings → Business → Brands → primary brand → Edit**
-  - Brand Name: `The Growth Folks` (no ®)
+  - Brand Name: `The Growth Folks`
   - Logo
   - Support email: `hello@thegrowthfolks.com`
   - Statement descriptor: e.g. `GROWTHFOLKS`, so the card line reads `DODOPAY_GROWTHFOLKS`

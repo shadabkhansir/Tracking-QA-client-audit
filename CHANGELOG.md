@@ -10,7 +10,6 @@
 - Hitting the activation limit, e.g. after a reinstall, now tells the buyer how to get the key reset.
 - The side panel updates as soon as a licence is activated or removed.
 - Separate monthly/yearly checkout links and a support email in `license-config.js`.
-- "The Growth Folks™" replaces ® everywhere (mark not yet registered); store graphics regenerated.
 
 ## 1.0.0 (2026-10-15): first store release
 

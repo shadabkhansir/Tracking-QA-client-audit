@@ -24,11 +24,9 @@ You can start as an **individual / sole proprietor**. You don't need a company t
 - **Legal pages must name a real person.** Until you incorporate, terms of service, refund policy and privacy policy should say: *"Operated by <Your Full Name>, trading as The Growth Folks, <city>, India."*
 - **When to incorporate (LLP or Pvt Ltd):** when revenue, liability or investors justify it. Moving the Dodo account to a company later is a support request; your product IDs live only in `license-config.js`, so the extension side stays easy.
 
-### The ™ symbol (switched from ® on 2026-10-15)
+### The ® symbol
 
-The extension, listing and docs now say **"The Growth Folks™"**. Using ® for a mark that isn't **registered** is an offence in India (falsely representing a trade mark as registered), and the UAE takes the same view. ™ needs no registration.
-- Apply for registration (likely classes 9 and 42 for software/SaaS). Individuals and startups pay a reduced fee per class.
-- Switch back to ® only after the registration certificate is issued. To switch back, change `src/brand.js` and the manifest name, re-run `node store/make-graphics.mjs`, and update the listing.
+The extension, listing and docs use **"The Growth Folks®"** (owner's decision, 2026-10-15). In India and the UAE, using ® is only lawful for a **registered** trade mark; for an unregistered mark use ™ or no symbol. If registration is still pending, switch by changing `src/brand.js` and the manifest name, re-running `node store/make-graphics.mjs` and updating the listing.
 
 ## 3. Catalogue design for many extensions and plans
 
@@ -88,7 +86,7 @@ That also makes a future provider switch painless, because you own the customer 
    - refund policy (e.g. 14 days)
    - updated privacy policy (step 6)
    - "how to activate" page
-4. ~~Fix the ® / ™ question~~ Done: ™ is used until registration.
+4. Keep the ® symbol only if the trade mark is registered (section 2).
 
 **Me (code), once you send the IDs**
 5. Put your business ID and product IDs into `src/license-config.js`. Test the full purchase → key → activate → validate → deactivate flow in Dodo test mode. Then switch `mode: 'live'` and `enabled: true`. The activation screen in Settings, upgrade links and plan gating are already built and tested.
