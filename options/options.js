@@ -1,6 +1,8 @@
 import { getBrand, setBrand, getSettings, setSettings } from '../src/storage.js';
 import { wireTgfLinks } from '../src/brand.js';
 import { getPlan, setPlan, LIMITS } from '../src/plan.js';
+import { LICENSE_CONFIG } from '../src/license-config.js';
+import { activateLicense, deactivateLicense, getLicense, revalidateIfDue, planFromLicense } from '../src/license.js';
 
 const $ = id => document.getElementById(id);
 const FIELDS = ['agencyName', 'contact', 'preparedFor', 'brandColor', 'ctaText', 'ctaUrl'];
@@ -18,6 +20,7 @@ async function load() {
 
   const plan = await getPlan();
   $('plan-name').textContent = plan === 'pro' ? 'Pro' : 'Free';
+  await renderLicense();
   $('branding').classList.toggle('locked', !LIMITS[plan].customBranding);
   $('dev-pro').checked = plan === 'pro';
 
@@ -67,5 +70,41 @@ $('save').addEventListener('click', async () => {
   setTimeout(() => { $('status').textContent = ''; }, 1500);
 });
 
+// ---- Licence (shown only once LICENSE_CONFIG.enabled is switched on) --------------------------------------
+async function renderLicense() {
+  $('license-box').hidden = !LICENSE_CONFIG.enabled;
+  if (!LICENSE_CONFIG.enabled) return;
+  document.querySelector('#license-box').closest('fieldset').querySelector('.hint').textContent =
+    'Pro: white-label reports (your logo, colours, CTA, no credit line), 50-page scans, scheduled monitoring with alerts, 500 saved audits.';
+  $('license-buy').href = LICENSE_CONFIG.checkoutUrl;
+  $('license-manage').href = LICENSE_CONFIG.manageUrl;
+  const state = await getLicense();
+  const active = planFromLicense(state) !== 'free';
+  $('license-deactivate').hidden = !state;
+  $('license-buy').hidden = active;
+  $('license-key').value = state?.key ? `${state.key.slice(0, 4)}…${state.key.slice(-4)}` : '';
+  $('license-key').disabled = !!state;
+  $('license-activate').hidden = !!state;
+  $('license-status').textContent = !state ? 'Free plan. Buy Pro, then paste the licence key from your email.'
+    : active ? `Active: ${state.productName || 'Pro'}${state.variantName ? ` (${state.variantName})` : ''}. Last checked ${new Date(state.validatedAt).toLocaleDateString()}.`
+      : 'This licence is no longer active (expired, cancelled or refunded). Deactivate it here and enter a current key.';
+}
+
+$('license-activate').addEventListener('click', async () => {
+  $('license-activate').disabled = true;
+  $('license-status').textContent = 'Checking…';
+  const r = await activateLicense($('license-key').value);
+  $('license-activate').disabled = false;
+  if (!r.ok) { $('license-status').textContent = r.error; return; }
+  load();
+});
+
+$('license-deactivate').addEventListener('click', async () => {
+  if (!confirm('Deactivate Pro on this browser? You can activate the same key again later or on another browser.')) return;
+  await deactivateLicense();
+  load();
+});
+
 wireTgfLinks(document, 'options');
+if (LICENSE_CONFIG.enabled) revalidateIfDue().catch(() => {}).finally(load);
 load();

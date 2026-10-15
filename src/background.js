@@ -5,6 +5,10 @@ import { saveAudit, newId, listAudits, getSettings, listMonitors, saveMonitors }
 import { getLimits, getPlan } from './plan.js';
 import { diffFindings, findPrevious } from './diff.js';
 import { LINKS } from './brand.js';
+import { revalidateIfDue } from './license.js';
+
+// Licence keys are re-checked at most every few days, and only for users who activated one.
+revalidateIfDue().catch(() => {});
 
 const MAX_HITS_PER_TAB = 1000;
 const MAX_DL_PER_TAB = 500;

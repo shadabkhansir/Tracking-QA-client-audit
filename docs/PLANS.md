@@ -43,6 +43,9 @@ _Written 2026-10-15 for v0.4.x. Limits live in `src/plan.js`; this document is t
 
 ## Choosing a payment provider
 
+> **Update 2026-10-15: decided Dodo Payments.** Lemon Squeezy needs a Stripe account, which isn't available to new Indian sellers. See [`LICENSING.md`](LICENSING.md) for the India/individual setup, the multi-extension catalogue and the licence code that is already built.
+
+
 The Chrome Web Store's own payments were shut down years ago, so you need a third party. Verify current fees and terms on each provider's site before signing up; they change.
 
 | | ExtensionPay | Lemon Squeezy | Paddle |

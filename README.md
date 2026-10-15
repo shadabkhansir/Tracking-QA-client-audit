@@ -100,7 +100,7 @@ That log survives a page overwriting `window.dataLayer`. CMP templates in GTM se
 | Saved audits | 5 | 500 |
 | Scheduled monitoring + alerts | – | ✓ |
 
-Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md). Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
+Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md); payments and licence keys: [`docs/LICENSING.md`](docs/LICENSING.md) (Dodo Payments, off until configured in `src/license-config.js`). Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
 
 ## Develop
 

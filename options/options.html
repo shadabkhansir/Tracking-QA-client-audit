@@ -25,6 +25,19 @@
     <legend>Plan</legend>
     <p>Current plan: <strong id="plan-name">—</strong></p>
     <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
+    <div id="license-box" hidden>
+      <label for="license-key">Licence key</label>
+      <div class="row tight">
+        <input type="text" id="license-key" placeholder="Paste the key from your purchase email" autocomplete="off" spellcheck="false">
+        <button class="primary" id="license-activate">Activate</button>
+      </div>
+      <p class="hint" id="license-status"></p>
+      <div class="row tight">
+        <a class="link" id="license-buy" target="_blank" rel="noopener">Get Pro</a>
+        <a class="link" id="license-manage" target="_blank" rel="noopener">Manage subscription</a>
+        <button class="secondary" id="license-deactivate" hidden>Deactivate on this browser</button>
+      </div>
+    </div>
     <div id="dev-toggle" hidden>
       <label><input type="checkbox" id="dev-pro"> Developer: enable Pro (unpacked installs only)</label>
     </div>
