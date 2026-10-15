@@ -79,3 +79,10 @@ input[type=search] { width: 100%; }
 .ct-table td, .ct-table th { text-align: left; padding: 2px 4px; }
 .ct-table th { color: var(--muted); font-weight: 500; font-size: 11px; }
 code { font-family: ui-monospace, monospace; font-size: 11px; }
+
+/* The Growth Folks® mark + footer links */
+.tgf-mark { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); text-decoration: none; margin-top: 1px; }
+.tgf-mark:hover { color: var(--accent); }
+.tgf-foot { padding: 14px 12px 16px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); text-align: center; }
+.tgf-foot a { color: var(--muted); text-decoration: none; }
+.tgf-foot a:hover { color: var(--accent); text-decoration: underline; }

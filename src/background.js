@@ -4,6 +4,7 @@ import { runChecks, aggregatePages, resolveConsent, summarize } from './checks.j
 import { saveAudit, newId, listAudits, getSettings, listMonitors, saveMonitors } from './storage.js';
 import { getLimits, getPlan } from './plan.js';
 import { diffFindings, findPrevious } from './diff.js';
+import { LINKS } from './brand.js';
 
 const MAX_HITS_PER_TAB = 1000;
 const MAX_DL_PER_TAB = 500;
@@ -117,9 +118,11 @@ chrome.tabs.onRemoved.addListener(tabId => {
   persistSoon();
 });
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(details => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   chrome.alarms.create(MONITOR_ALARM, { periodInMinutes: 60 });
+  // First install only (not updates): open the getting-started page. tabs.create needs no "tabs" permission.
+  if (details.reason === 'install') chrome.tabs.create({ url: LINKS.welcome('welcome') }).catch(() => {});
 });
 chrome.runtime.onStartup.addListener(() => chrome.alarms.create(MONITOR_ALARM, { periodInMinutes: 60 }));
 

@@ -39,8 +39,16 @@ td.mono { font-family: ui-monospace, monospace; font-size: 11px; word-break: bre
 .passes { columns: 2; padding-left: 18px; } .passes li { color: var(--pass); } .passes li span { color: var(--fg); }
 .g { color: var(--pass); } .d { color: var(--warning); } .u { color: var(--muted); }
 .foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 16px; }
-.cta { color: #fff; background: var(--brand); padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 12px; }
+.cta { white-space: nowrap; color: #fff; background: var(--brand); padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 12px; }
 .watermark { color: var(--brand); font-weight: 600; }
+.credit { font-size: 10px; color: var(--muted); }
+.credit a { color: inherit; text-decoration: none; }
+.credit a:hover { text-decoration: underline; }
+.tgf-tool { font-size: 12px; color: var(--muted); }
+.tgf-tool > a { color: var(--fg); font-weight: 600; text-decoration: none; margin-right: 6px; }
+.tgf-tool .tgf-links a { color: var(--muted); text-decoration: none; }
+.tgf-tool a:hover { text-decoration: underline; }
+@media (max-width: 1000px) { .tgf-tool .tgf-links { display: none; } }
 [contenteditable] { outline: none; border-radius: 4px; }
 [contenteditable]:hover, [contenteditable]:focus { background: #fff8db; }
 .notes { min-height: 48px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 6px; white-space: pre-wrap; }

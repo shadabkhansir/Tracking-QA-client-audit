@@ -1,4 +1,5 @@
-import { getBrand, setBrand } from '../src/storage.js';
+import { getBrand, setBrand, getSettings, setSettings } from '../src/storage.js';
+import { wireTgfLinks } from '../src/brand.js';
 import { getPlan, setPlan, LIMITS } from '../src/plan.js';
 
 const $ = id => document.getElementById(id);
@@ -10,6 +11,7 @@ async function load() {
   const brand = await getBrand();
   FIELDS.forEach(f => { $(f).value = brand[f] || ''; });
   setLogo(brand.logoDataUrl);
+  $('showCredit').checked = (await getSettings()).showCredit !== false;
 
   const plan = await getPlan();
   $('plan-name').textContent = plan === 'pro' ? 'Pro' : 'Free';
@@ -36,11 +38,18 @@ $('logo').addEventListener('change', () => {
   reader.readAsDataURL(file);
 });
 
+$('showCredit').addEventListener('change', async () => {
+  await setSettings({ showCredit: $('showCredit').checked });
+  $('status').textContent = 'Saved';
+  setTimeout(() => { $('status').textContent = ''; }, 1500);
+});
+
 $('clear-logo').addEventListener('click', () => { setLogo(''); $('logo').value = ''; });
 
 $('dev-pro').addEventListener('change', async () => {
   await setPlan($('dev-pro').checked ? 'pro' : 'free');
-  load();
+  wireTgfLinks(document, 'options');
+load();
 });
 
 $('save').addEventListener('click', async () => {
@@ -50,4 +59,5 @@ $('save').addEventListener('click', async () => {
   setTimeout(() => { $('status').textContent = ''; }, 1500);
 });
 
+wireTgfLinks(document, 'options');
 load();

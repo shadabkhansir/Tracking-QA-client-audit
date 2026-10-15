@@ -17,12 +17,13 @@
   </style>
 </head>
 <body>
-  <h1 style="font-size:18px">Tracking QA settings</h1>
+  <h1 style="font-size:18px;margin-bottom:2px">Tracking QA settings</h1>
+  <a class="tgf-mark" data-tgf="landing" data-tgf-content="options-header">Tracking QA &amp; Client Audit by The Growth Folks®</a>
 
   <fieldset>
     <legend>Plan</legend>
     <p>Current plan: <strong id="plan-name">—</strong></p>
-    <p class="hint">Pro ($15/mo): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
+    <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
     <div id="dev-toggle" hidden>
       <label><input type="checkbox" id="dev-pro"> Developer: enable Pro (unpacked installs only)</label>
     </div>
@@ -49,7 +50,17 @@
     <div class="row"><button class="secondary" id="clear-logo">Remove logo</button></div>
   </fieldset>
 
+  <fieldset>
+    <legend>Report credit</legend>
+    <label style="font-weight:400"><input type="checkbox" id="showCredit"> Show a small "Made with Tracking QA &amp; Client Audit by The Growth Folks®" line in the footer of client reports</label>
+    <div class="hint">Your own name, logo and contact line always stay the main branding. Turn this off to leave the credit out of reports you send to clients. Saved as soon as you change it.</div>
+  </fieldset>
+
   <div class="row"><button class="primary" id="save">Save</button><span id="status" class="muted small"></span></div>
+
+  <footer class="tgf-foot">
+    <a data-tgf="landing">Help</a> · <a data-tgf="privacy">Privacy</a> · <a data-tgf="contact">Contact</a> · <a data-tgf="learn">Learn growth marketing</a>
+  </footer>
   <script type="module" src="options.js"></script>
 </body>
 </html>

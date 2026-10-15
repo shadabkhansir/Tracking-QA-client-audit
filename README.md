@@ -1,8 +1,14 @@
-# Tracking QA & Client Audit
+# Tracking QA & Client Audit by The Growth Folks®
 
-Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta Pixel, TikTok Pixel and Google Consent Mode v2 on any page, then turns the result into a branded client report.
+Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity and Hotjar tags plus Google Consent Mode v2 on any page, then turns the result into a branded client report.
 
-Landing page: [`docs/index.html`](docs/index.html) (GitHub Pages). Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md).
+- Landing page: https://thegrowthfolks.com/tools/tracking-qa
+- Privacy policy: https://thegrowthfolks.com/tools/tracking-qa/privacy (source: [`PRIVACY.md`](PRIVACY.md))
+- Support: hello@thegrowthfolks.com
+- Chrome Web Store listing copy, permission justifications and graphics: [`store/`](store/)
+- Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md)
+
+The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing page.
 
 ## What it does
 
@@ -24,6 +30,7 @@ Landing page: [`docs/index.html`](docs/index.html) (GitHub Pages). Competitor re
   - editable analyst notes and "Prepared for"
   - call-to-action button
   - CSV/JSON/summary export
+  - small "Made with Tracking QA & Client Audit by The Growth Folks®" credit in the footer, switchable off in Settings
 - **Pop-out window** pinned to a tab.
 
 ### Platforms
@@ -88,7 +95,8 @@ Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provi
 
 ```bash
 npm test          # unit tests for detectors + rules (node:test, no deps)
-npm run zip       # dist.zip for the Chrome Web Store
+npm run zip       # dist.zip for the Chrome Web Store (gitignored)
+node store/make-graphics.mjs   # regenerate store screenshots and promo tiles (needs Playwright + Chromium)
 ```
 
 Load it: `chrome://extensions` → Developer mode → *Load unpacked* → select this folder. Click the toolbar icon to open the side panel.
@@ -108,7 +116,9 @@ src/diff.js         before/after comparison between audits
 src/export.js       CSV / summary exports
 src/storage.js      history, branding, settings, monitors
 src/plan.js         free/pro limits
-docs/               GitHub Pages landing page + competitive analysis
+src/brand.js        The Growth Folks® links (UTM-tagged) for the panel, options and report
+docs/               competitive analysis
+store/              Web Store listing copy, graphics and the script that generates them
 sidepanel/          live UI
 report/             printable client report
 options/            branding + plan
