@@ -147,7 +147,7 @@ export async function activateLicense(rawKey, deps) {
     if (res.instanceId) await provider.deactivate(key, res.instanceId, fetchImpl, cfg);
     return { ok: false, error: 'This key is valid but is not for this extension.' };
   }
-  const state = { key, instanceId: res.instanceId, plan, valid: true, status: res.status, expiresAt: res.expiresAt,
+  const state = { key, instanceId: res.instanceId, plan, activatedPlan: plan, valid: true, status: res.status, expiresAt: res.expiresAt,
     productName: res.meta.productName, variantName: res.meta.variantName, validatedAt: now(), checkedAt: now() };
   await storage.set(STATE_KEY, state);
   return { ok: true, state };
@@ -167,8 +167,9 @@ export async function revalidateIfDue(deps, { force = false } = {}) {
     await storage.set(STATE_KEY, next);
     return next;
   }
-  // Providers that return product details on validate (Lemon Squeezy) are re-checked; others keep the plan from activation.
-  const plan = !res.ok ? null : res.meta ? entitlementFor(res.meta, cfg) : state.plan;
+  // Providers that return product details on validate (Lemon Squeezy) are re-checked; others keep the plan from
+  // activation, which also restores Pro when a paused or on-hold subscription recovers and the key validates again.
+  const plan = !res.ok ? null : res.meta ? entitlementFor(res.meta, cfg) : (state.activatedPlan ?? state.plan);
   Object.assign(next, { valid: !!plan, plan: plan || null, status: res.status, expiresAt: res.expiresAt ?? state.expiresAt });
   if (plan) next.validatedAt = now();
   await storage.set(STATE_KEY, next);

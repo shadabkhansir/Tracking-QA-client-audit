@@ -83,6 +83,11 @@ test('revalidation: only when due; offline keeps Pro within grace; explicit inva
   t = 12 * DAY;
   const s3 = await revalidateIfDue({ cfg: dodoCfg, storage, fetchImpl: dodoServer({ valid: false }).fetchImpl, now });
   assert.equal(planFromLicense(s3, t, dodoCfg), 'free', 'refunded/expired');
+
+  // Dodo re-enables keys when an on-hold or paused subscription recovers: Pro must come back.
+  t = 16 * DAY;
+  const s4 = await revalidateIfDue({ cfg: dodoCfg, storage, fetchImpl: dodoServer({ valid: true }).fetchImpl, now });
+  assert.equal(planFromLicense(s4, t, dodoCfg), 'pro', 'recovered subscription');
 });
 
 test('deactivate releases the activation and clears local state', async () => {
