@@ -43,6 +43,13 @@ async function currentTab() {
 
 wireTgfLinks(document, 'panel-footer');
 
+// Export menu: close after picking a format or clicking outside it.
+document.addEventListener('click', e => {
+  for (const menu of document.querySelectorAll('details.menu[open]')) {
+    if (!menu.contains(e.target) || e.target.closest('.menu-items button')) menu.open = false;
+  }
+});
+
 // ---- Tabs -----------------------------------------------------------------------------
 document.querySelectorAll('.tabs button').forEach(btn => {
   btn.addEventListener('click', () => {

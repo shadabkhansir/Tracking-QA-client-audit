@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
+  <div class="chrome">
   <header class="top">
     <div class="brand">Tracking QA <span id="plan-badge" class="badge"></span><a class="tgf-mark" data-tgf="landing" data-tgf-content="panel-header" title="Tracking QA &amp; Client Audit by The Growth Folks®">by The Growth Folks®</a></div>
     <span><a href="#" id="pop-out" class="link" title="Open in a separate window pinned to this tab">Pop out</a> · <a href="#" id="open-options" class="link">Settings</a></span>
@@ -20,6 +21,7 @@
     <button role="tab" data-tab="monitor" aria-selected="false">Monitor</button>
     <button role="tab" data-tab="history" aria-selected="false">History</button>
   </nav>
+  </div>
 
   <!-- Audit -->
   <section id="tab-live" class="tab-panel">
@@ -59,9 +61,14 @@
     <div class="row tight">
       <label class="small"><input type="checkbox" id="preserve-log"> Preserve log across pages</label>
       <span class="spacer"></span>
-      <button class="secondary sm" id="export-csv">CSV</button>
-      <button class="secondary sm" id="export-json">JSON</button>
-      <button class="secondary sm" id="export-har" title="HTTP Archive for developers (Chrome DevTools, Charles, etc.)">HAR</button>
+      <details class="menu">
+        <summary>Export</summary>
+        <div class="menu-items">
+          <button class="secondary sm" id="export-csv">CSV</button>
+          <button class="secondary sm" id="export-json">JSON</button>
+          <button class="secondary sm" id="export-har" title="HTTP Archive for developers (Chrome DevTools, Charles, etc.)">HAR</button>
+        </div>
+      </details>
       <button class="secondary sm" id="clear-log">Clear</button>
     </div>
     <p class="muted small" id="hit-count"></p>
@@ -79,10 +86,13 @@
     <p class="small">Opens each URL in a background tab, waits for tags to settle, then audits it. Pages are checked as a <strong>first-time visitor who hasn't consented yet</strong>.</p>
     <label for="scan-urls" class="small">URLs (one per line)</label>
     <textarea id="scan-urls" rows="7" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
-    <div class="opts">
-      <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
-      <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
-    </div>
+    <details class="disclosure">
+      <summary>Scan options</summary>
+      <div class="opts">
+        <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
+        <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
+      </div>
+    </details>
     <div class="row">
       <button id="use-links" class="secondary">Use links from this page</button>
       <button id="start-scan" class="primary">Start scan</button>

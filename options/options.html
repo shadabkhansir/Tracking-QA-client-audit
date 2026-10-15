@@ -6,15 +6,23 @@
   <title>Tracking QA Settings</title>
   <link rel="stylesheet" href="../sidepanel/sidepanel.css">
   <style>
-    body { max-width: 560px; margin: 0 auto; padding: 24px 16px; }
-    label { display: block; font-weight: 600; margin: 14px 0 4px; }
-    input[type=text] { width: 100%; font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    #logo-preview { max-height: 48px; display: block; margin-top: 8px; }
-    textarea { width: 100%; font: 12px ui-monospace, monospace; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); margin-top: 6px; }
-    fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px 14px; margin: 18px 0; }
-    legend { font-weight: 650; padding: 0 6px; }
-    .locked { opacity: .55; pointer-events: none; }
+    body { max-width: 600px; margin: 0 auto; padding: 28px 16px 40px; }
+    h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin: 0 2px 2px; }
+    body > .tgf-mark { margin: 0 2px 18px; }
+    label { display: block; font-weight: 500; margin: 14px 0 6px; }
+    input[type=text] { width: 100%; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    #logo-preview { max-height: 48px; display: block; margin-top: 8px; border-radius: 6px; }
+    textarea { margin-top: 6px; }
+    fieldset { background: var(--card); border: 1px solid var(--hair); border-radius: var(--r-card); box-shadow: var(--shadow);
+      padding: 6px 16px 16px; margin: 0 0 14px; min-width: 0; }
+    legend { float: left; width: 100%; font-size: 13px; font-weight: 600; padding: 10px 0 2px; margin: 0; }
+    legend + * { clear: both; }
+    fieldset > p:first-of-type { clear: both; }
+    label:has(> input[type=checkbox]) { display: flex; align-items: center; gap: 2px; font-weight: 400; }
+    input[type=color] { width: 44px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--surface); cursor: pointer; }
+    input[type=file] { font: inherit; font-size: 12px; }
+    .locked { opacity: .5; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -24,7 +32,7 @@
   <fieldset>
     <legend>Plan</legend>
     <p>Current plan: <strong id="plan-name">—</strong></p>
-    <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
+    <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, CTA, credit line optional), "changes since last audit", 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
     <div id="license-box" hidden>
       <label for="license-key">Licence key</label>
       <div class="row tight">
