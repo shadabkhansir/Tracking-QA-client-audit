@@ -33,6 +33,17 @@ The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing 
   - small "Made with Tracking QA & Client Audit by The Growth Folks®" credit in the footer, switchable off in Settings
 - **Pop-out window** pinned to a tab.
 
+- **Delivery status**: HTTP status and timing for every tracking request. Flags tag libraries that fail to load (e.g. a GTM 404), hits rejected by the endpoint, and hits blocked by an ad blocker in the auditor's own browser.
+- **Google Ads + Enhanced Conversions**: label, value, currency and order ID per conversion. Checks user data is present and hashed.
+- **GPC test**: reloads the page with `Sec-GPC: 1` and `navigator.globalPrivacyControl` (via a tab-scoped `declarativeNetRequest` session rule) and checks ad tags honour the opt-out. Meta LDU and Google `rdp` count as honouring it.
+- **Cookie table**: first-party cookies (including HttpOnly) with vendor, purpose and expiry, before and after consent. Names only, never values.
+- **Shopify custom pixels**: captures events and the dataLayer from Customer Events sandboxes (`/wpm@…`, `/web-pixels@…`) and flags the sandbox URL being reported as the page URL.
+- **Placement and order**: GTM or Meta snippet outside `<head>`, gtag events before config, dataLayer pushes without `event`, several conversions on one page load.
+- **Proxies and custom providers**: Google Tag Gateway, server-side GTM and Meta/TikTok pixel proxies on first-party domains. User-defined providers (`Name | match | idParam | eventParam`) in Settings.
+- **Coverage**: site scans flag templates missing tags that most other pages have.
+- **HAR export** of captured requests, and **audit import** to view a report someone exported as JSON.
+- **ID labels** ("G-ABC = Main property") shown in the panel and in reports.
+
 ### Platforms
 GA4 (including first-party server-side GTM endpoints), GTM, gtag, Google Ads, Floodlight, Meta, TikTok, LinkedIn, Pinterest, Snapchat, X, Microsoft Ads (UET), Reddit, Microsoft Clarity, Hotjar.
 
@@ -111,7 +122,8 @@ src/params.js       readable parameter names, GA4 item parsing, ecommerce normal
 src/page-probe.js   MAIN-world probe (dataLayer, consent state, pixels, CMPs, cookie names) + accept/reject banner
 src/content/        dataLayer hook (MAIN world, document_start) + relay (isolated world)
 src/checks.js       core rules, consent test findings, scoring, multi-page aggregation
-src/validators.js   ecommerce, naming, dedup, dataLayer, cookies, cross-platform rules
+src/validators.js   ecommerce, naming, dedup, dataLayer, cookies, cross-platform, delivery, Google Ads/EC, placement, pixel health, Shopify rules
+src/cookies.js      cookie vendor/purpose classification
 src/diff.js         before/after comparison between audits
 src/export.js       CSV / summary exports
 src/storage.js      history, branding, settings, monitors

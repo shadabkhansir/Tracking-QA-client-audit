@@ -1,9 +1,9 @@
-import { PLATFORM_LABELS } from '../src/detectors.js';
+import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { describeParams } from '../src/params.js';
-import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId } from '../src/storage.js';
+import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId, importAudit } from '../src/storage.js';
 import { getPlan, getLimits } from '../src/plan.js';
-import { hitsToCsv, download, summaryText } from '../src/export.js';
+import { hitsToCsv, hitsToHar, download, summaryText } from '../src/export.js';
 import { wireTgfLinks } from '../src/brand.js';
 
 const $ = id => document.getElementById(id);
@@ -16,6 +16,18 @@ let activeTabId = null;
 let lastResult = null;
 let tabState = { hits: [], dl: [] };
 const ui = { filter: new Set(), search: '', open: new Set(), openDl: new Set() };
+const short = p => SHORT[p] || platformLabel(p);
+let idLabels = {};
+const withLabel = id => (idLabels[id] ? `${id} (${idLabels[id]})` : id);
+
+// Delivery badge: HTTP status, or why the request never completed.
+function statusBadge(h) {
+  const d = h.delivery;
+  if (!d) return h.kind === 'script' ? 'script' : '…';
+  if (/BLOCKED/.test(d.error || '')) return '<span class="st blk" title="Blocked by a browser extension">blocked</span>';
+  if (d.status >= 400 || (d.status === 0 && d.error && !/ABORTED/.test(d.error))) return `<span class="st bad" title="${esc(d.error || '')}">${esc(d.status || 'failed')}</span>`;
+  return `<span class="st ok" title="${d.ms} ms">${esc(d.status || '')}</span>`;
+}
 
 // ?tabId=N pins the panel to one tab (used by the pop-out window).
 const pinnedTabId = Number(new URLSearchParams(location.search).get('tabId')) || null;
@@ -73,7 +85,7 @@ function hitMatches(h) {
 function renderHits() {
   const hits = tabState.hits || [];
   const platforms = [...new Set(hits.filter(h => h.platform).map(h => h.platform))];
-  $('chips').innerHTML = platforms.map(p => `<button class="chip" data-p="${esc(p)}" aria-pressed="${ui.filter.has(p)}">${esc(SHORT[p] || p)} ${hits.filter(h => h.platform === p && h.kind === 'hit').length}</button>`).join('');
+  $('chips').innerHTML = platforms.map(p => `<button class="chip" data-p="${esc(p)}" aria-pressed="${ui.filter.has(p)}">${esc(short(p))} ${hits.filter(h => h.platform === p).length}</button>`).join('');
   const shown = hits.map((h, i) => ({ h, i })).filter(({ h }) => hitMatches(h)).reverse().slice(0, 300);
   const n = hits.filter(h => h.kind === 'hit').length;
   $('hit-count').textContent = n ? `${n} tracking requests${ui.filter.size || ui.search ? ` (${shown.filter(x => x.h.kind !== 'nav').length} shown)` : ''}` : 'No tracking requests yet. Reload the page with this panel open.';
@@ -81,9 +93,9 @@ function renderHits() {
     if (h.kind === 'nav') return `<li class="nav">↳ ${esc(h.url)}</li>`;
     const open = ui.open.has(i);
     const rows = open ? describeParams(h).map(r => `<tr><td>${esc(r.label)}<code>${esc(r.key)}</code></td><td>${esc(r.value)}</td></tr>`).join('') : '';
-    return `<li data-i="${i}" class="${open ? 'open' : ''}"><span class="p">${esc(SHORT[h.platform] || h.platform)}</span>
-      <span><span>${esc(h.event || (h.kind === 'script' ? 'library loaded' : '—'))}</span><br><span class="id">${esc(h.id || '')}</span></span>
-      <span class="k">${h.kind === 'script' ? 'script' : h.consent?.gcs ? esc(h.consent.gcs) : 'hit'}</span>
+    return `<li data-i="${i}" class="${open ? 'open' : ''}"><span class="p">${esc(short(h.platform))}${h.source === 'shopify-sandbox' ? '<span class="src" title="Sent from a Shopify custom pixel (Customer Events sandbox)">Shopify</span>' : ''}</span>
+      <span><span>${esc(h.event || (h.kind === 'script' ? 'library loaded' : '—'))}</span><br><span class="id">${esc(withLabel(h.id || ''))}</span></span>
+      <span class="k">${statusBadge(h)}${h.consent?.gcs ? `<br>${esc(h.consent.gcs)}` : ''}</span>
       ${open ? `<table class="params">${rows || '<tr><td colspan="2">No parameters</td></tr>'}</table>` : ''}</li>`;
   }).join('');
 }
@@ -155,6 +167,7 @@ function hostStamp() {
   return `${host}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
 }
 $('export-csv').addEventListener('click', () => download(`tracking-${hostStamp()}.csv`, hitsToCsv(tabState.hits.filter(hitMatches)), 'text/csv'));
+$('export-har').addEventListener('click', () => download(`tracking-${hostStamp()}.har`, JSON.stringify(hitsToHar(tabState.hits.filter(hitMatches), { pageUrl: tabState.url }), null, 2), 'application/json'));
 $('export-json').addEventListener('click', () => download(`tracking-${hostStamp()}.json`, JSON.stringify({ url: tabState.url, hits: tabState.hits, dataLayer: tabState.dl }, null, 2), 'application/json'));
 
 // ---- Audit ----------------------------------------------------------------------------
@@ -170,7 +183,7 @@ function renderResult(r) {
 
   const plats = Object.entries(r.platforms);
   $('platforms').innerHTML = plats.length
-    ? plats.map(([k, p]) => `<div><span>${esc(PLATFORM_LABELS[k] || k)}</span><span class="ids">${esc(p.ids.join(', ') || 'detected')}</span></div>`).join('')
+    ? plats.map(([k, p]) => `<div><span>${esc(platformLabel(k))}</span><span class="ids">${esc(p.ids.map(withLabel).join(', ') || 'detected')}</span></div>`).join('')
     : '<div class="muted">No platforms detected</div>';
 
   const c = r.consent;
@@ -183,10 +196,18 @@ function renderResult(r) {
   if (t) {
     const plats2 = [...new Set([...Object.keys(t.before || {}), ...Object.keys(t.after || {})])];
     $('consent-test').innerHTML = t.accepted
-      ? `<div><strong>Consent test (${t.mode === 'reject' ? 'reject all' : 'accept all'})</strong><span class="muted small">${esc(t.method)}</span></div>
-         <table class="ct-table"><tr><th>Platform</th><th>Before</th><th>After ${t.mode === 'reject' ? 'reject' : 'accept'}</th></tr>
-         ${plats2.map(p => `<tr><td>${esc(SHORT[p] || p)}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('')}</table>`
+      ? `<div><strong>Consent test (${({ reject: 'reject all', gpc: 'GPC signal' })[t.mode] || 'accept all'})</strong><span class="muted small">${esc(t.method)}</span></div>
+         <table class="ct-table"><tr><th>Platform</th><th>Before</th><th>After ${({ reject: 'reject', gpc: 'GPC on' })[t.mode] || 'accept'}</th></tr>
+         ${plats2.map(p => `<tr><td>${esc(short(p))}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('')}</table>`
       : `<div><strong>Consent test</strong><span class="c-warning">not run</span></div><div class="small">${esc(t.reason || '')}</div>`;
+  }
+
+  const ck = r.cookies;
+  $('cookies').hidden = !ck;
+  if (ck) {
+    const by = cat => ck.filter(c => c.category === cat);
+    const line = (cat, label) => (by(cat).length ? `<div><span>${label}</span><span class="ids">${esc(by(cat).map(c => c.name).join(', '))}</span></div>` : '');
+    $('cookies').innerHTML = `<div><strong>First-party cookies</strong><span>${ck.length}</span></div>${line('advertising', 'Advertising')}${line('analytics', 'Analytics')}${line('consent', 'Consent')}${by('other').length + by('functional').length ? `<div><span>Other</span><span class="ids">${by('other').length + by('functional').length}</span></div>` : ''}`;
   }
 
   $('findings').innerHTML = r.findings.map(f => `
@@ -201,7 +222,7 @@ function renderResult(r) {
 $('run-audit').addEventListener('click', async () => {
   const tab = await currentTab();
   $('run-audit').disabled = true;
-  $('run-audit').textContent = $('opt-consent').value ? 'Testing consent…' : 'Auditing…';
+  $('run-audit').textContent = $('opt-consent').value === 'gpc' ? 'Reloading with GPC…' : $('opt-consent').value ? 'Testing consent…' : 'Auditing…';
   try {
     const r = await send({ type: 'audit-tab', tabId: tab.id, consentTest: $('opt-consent').value || false, session: $('opt-session').checked && !$('opt-session-wrap').hidden });
     if (r?.error) throw new Error(r.error);
@@ -318,11 +339,24 @@ async function renderHistory() {
   const audits = await listAudits();
   $('history').innerHTML = audits.length ? audits.map(a => {
     const score = a.type === 'site' ? a.site.score : a.result.score;
-    const label = a.type === 'site' ? `${a.pages.length}-page scan${a.monitorId ? ' (monitor)' : ''}` : a.result.session ? 'Funnel audit' : 'Page audit';
+    const label = `${a.type === 'site' ? `${a.pages.length}-page scan${a.monitorId ? ' (monitor)' : ''}` : a.result.session ? 'Funnel audit' : 'Page audit'}${a.imported ? ' · imported' : ''}`;
     return `<li><div><div>${esc(a.host)}</div><div class="meta">${esc(label)} · score ${score} · ${new Date(a.createdAt).toLocaleString()}</div></div>
       <div><button data-open="${esc(a.id)}">Open</button><button class="del" data-del="${esc(a.id)}">Delete</button></div></li>`;
   }).join('') : '<li class="muted">No saved audits yet.</li>';
 }
+
+$('import-audit').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const audit = await importAudit(JSON.parse(await file.text()));
+    renderHistory();
+    chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(audit.id)}`) });
+  } catch (err) {
+    alert(`Could not import: ${err.message}`);
+  }
+});
 
 $('history').addEventListener('click', async e => {
   const open = e.target.closest('[data-open]');
@@ -342,7 +376,9 @@ async function renderPlan() {
 }
 
 async function init() {
-  const { preserveLog } = await getSettings();
+  const settings = await getSettings();
+  const { preserveLog } = settings;
+  idLabels = settings.idLabels || {};
   $('preserve-log').checked = preserveLog;
   $('opt-session-wrap').hidden = !preserveLog;
   renderPlan();

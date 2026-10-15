@@ -49,7 +49,7 @@ export function newId() {
 }
 
 // showCredit: the small "Made with … by The Growth Folks®" line in client reports (on by default, user can turn it off).
-export const DEFAULT_SETTINGS = { preserveLog: false, showCredit: true };
+export const DEFAULT_SETTINGS = { preserveLog: false, showCredit: true, customProviders: [], idLabels: {} };
 
 export async function getSettings() {
   const { settings = {} } = await chrome.storage.local.get('settings');
@@ -77,4 +77,17 @@ export async function listMonitors() {
 
 export async function saveMonitors(monitors) {
   await chrome.storage.local.set({ monitors });
+}
+
+// Imports an audit exported as JSON from another browser. Validates the shape and gives it a fresh id.
+export async function importAudit(data) {
+  const ok = data && typeof data === 'object' && typeof data.url === 'string'
+    && ((data.type === 'page' && Array.isArray(data.result?.findings)) || (data.type === 'site' && Array.isArray(data.site?.findings) && Array.isArray(data.pages)));
+  if (!ok) throw new Error('This file is not a Tracking QA audit export.');
+  const audit = JSON.parse(JSON.stringify(data));
+  audit.id = newId();
+  audit.imported = true;
+  audit.host = String(audit.host || (() => { try { return new URL(audit.url).hostname; } catch { return 'imported'; } })());
+  audit.createdAt = Number(audit.createdAt) || Date.now();
+  return saveAudit(audit);
 }

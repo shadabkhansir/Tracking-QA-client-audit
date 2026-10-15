@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Tracking QA & Client Audit by The Growth Folks®",
+  "name": "Tracking QA & Client Audit by The Growth Folks\u00ae",
   "short_name": "Tracking QA",
-  "version": "0.3.0",
-  "description": "Audit GA4, GTM, Meta, TikTok and 10 more tags plus Consent Mode v2, then send clients a branded report. By The Growth Folks®",
+  "version": "0.4.0",
+  "description": "Audit GA4, GTM, Meta, TikTok and 10 more tags plus Consent Mode v2, then send clients a branded report. By The Growth Folks\u00ae",
   "homepage_url": "https://thegrowthfolks.com/tools/tracking-qa",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -12,7 +12,9 @@
     "scripting",
     "webRequest",
     "alarms",
-    "notifications"
+    "notifications",
+    "cookies",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -66,6 +68,33 @@
       ],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*/wpm@*",
+        "https://*/web-pixels@*",
+        "http://*/wpm@*",
+        "http://*/web-pixels@*"
+      ],
+      "js": [
+        "src/content/dl-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/wpm@*",
+        "https://*/web-pixels@*",
+        "http://*/wpm@*",
+        "http://*/web-pixels@*"
+      ],
+      "js": [
+        "src/content/relay.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
     }
   ]
 }

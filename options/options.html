@@ -11,6 +11,7 @@
     input[type=text] { width: 100%; font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); }
     .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
     #logo-preview { max-height: 48px; display: block; margin-top: 8px; }
+    textarea { width: 100%; font: 12px ui-monospace, monospace; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); margin-top: 6px; }
     fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px 14px; margin: 18px 0; }
     legend { font-weight: 650; padding: 0 6px; }
     .locked { opacity: .55; pointer-events: none; }
@@ -48,6 +49,19 @@
     <div class="hint">PNG, JPG or SVG, max 300 KB.</div>
     <img id="logo-preview" alt="" hidden>
     <div class="row"><button class="secondary" id="clear-logo">Remove logo</button></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ID labels</legend>
+    <label for="idLabels" style="font-weight:400">One per line: <code>ID = label</code>. Shown next to the ID in the panel and in client reports.</label>
+    <textarea id="idLabels" rows="4" placeholder="G-ABC123 = Main GA4 property&#10;GTM-XYZ = Agency container&#10;1234567890123 = Meta pixel (US store)"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>Custom providers</legend>
+    <label for="customProviders" style="font-weight:400">Track any other endpoint (in-house collectors, proxies, other vendors). One per line: <code>Name | URL contains (or /regex/) | ID parameter | event parameter</code>.</label>
+    <textarea id="customProviders" rows="4" placeholder="Segment | api.segment.io/v1 | writeKey | event&#10;Our collector | /collect/v1/ | site_id | ev"></textarea>
+    <div class="hint">Parameters are read from the query string, form body or JSON body (nested keys as a.b.c). Built-in vendors always take priority.</div>
   </fieldset>
 
   <fieldset>

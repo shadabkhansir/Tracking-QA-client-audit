@@ -25,7 +25,7 @@
   <section id="tab-live" class="tab-panel">
     <div class="page-url" id="page-url">—</div>
     <div class="opts">
-      <label title="Clicks the cookie banner and compares tag behaviour before and after">Consent test: <select id="opt-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+      <label title="Clicks the cookie banner and compares tag behaviour before and after">Consent test: <select id="opt-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
       <label id="opt-session-wrap" title="Audit every page in the preserved log, e.g. product → cart → checkout"><input type="checkbox" id="opt-session"> Whole session / funnel</label>
     </div>
     <div class="row">
@@ -41,6 +41,7 @@
       <div id="platforms" class="card"></div>
       <div id="consent" class="card"></div>
       <div id="consent-test" class="card" hidden></div>
+      <div id="cookies" class="card" hidden></div>
       <ul id="findings" class="findings"></ul>
       <div class="row">
         <button id="save-report" class="primary">Save &amp; open client report</button>
@@ -60,6 +61,7 @@
       <span class="spacer"></span>
       <button class="secondary sm" id="export-csv">CSV</button>
       <button class="secondary sm" id="export-json">JSON</button>
+      <button class="secondary sm" id="export-har" title="HTTP Archive for developers (Chrome DevTools, Charles, etc.)">HAR</button>
       <button class="secondary sm" id="clear-log">Clear</button>
     </div>
     <p class="muted small" id="hit-count"></p>
@@ -78,7 +80,7 @@
     <label for="scan-urls" class="small">URLs (one per line)</label>
     <textarea id="scan-urls" rows="7" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
     <div class="opts">
-      <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+      <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
       <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
     </div>
     <div class="row">
@@ -98,7 +100,7 @@
       <textarea id="mon-urls" rows="4" placeholder="https://client.com/&#10;https://client.com/checkout/thank-you"></textarea>
       <div class="row tight">
         <select id="mon-freq"><option value="daily">Daily</option><option value="weekly" selected>Weekly</option></select>
-        <label class="small">Consent: <select id="mon-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+        <label class="small">Consent: <select id="mon-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
         <span class="spacer"></span>
         <button id="add-monitor" class="primary sm">Add monitor</button>
       </div>
@@ -109,6 +111,7 @@
 
   <!-- History -->
   <section id="tab-history" class="tab-panel" hidden>
+    <div class="row tight"><span class="spacer"></span><label class="secondary sm btn-file">Import audit (.json)<input type="file" id="import-audit" accept="application/json,.json" hidden></label></div>
     <ul id="history" class="history"></ul>
     <p class="muted small" id="history-limit"></p>
   </section>

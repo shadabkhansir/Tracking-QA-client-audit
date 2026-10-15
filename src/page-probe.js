@@ -84,9 +84,24 @@ export function pageProbe(options = {}) {
   // Names only, never values.
   const cookieNames = safe(() => document.cookie.split(';').map(c => c.split('=')[0].trim()).filter(Boolean)) || [];
 
+  // Where the inline GTM / Meta base snippets sit. Vendors recommend <head> so tags load before the user can leave.
+  const placement = safe(() => {
+    const inline = Array.from(document.scripts).filter(el => !el.src);
+    const where = re => {
+      const el = inline.find(x => re.test(x.textContent || ''));
+      return el ? (el.closest('head') ? 'head' : 'body') : null;
+    };
+    return { gtmSnippet: where(/gtm\.start/), metaBase: where(/fbevents\.js/), tiktokBase: where(/analytics\.tiktok\.com\/i18n\/pixel/) };
+  }) || {};
+
+  const shopify = safe(() => (w.Shopify ? { shop: w.Shopify.shop || null, theme: w.Shopify.theme?.name || null } : null)) || null;
+
   return {
     url: location.href,
     cookieNames,
+    placement,
+    shopify,
+    gpc: navigator.globalPrivacyControl === true,
     title: document.title,
     hasGtag: typeof w.gtag === 'function',
     dataLayer,

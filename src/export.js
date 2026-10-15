@@ -1,5 +1,5 @@
 // CSV / text exports shared by the side panel and the report page.
-import { PLATFORM_LABELS } from './detectors.js';
+import { platformLabel } from './detectors.js';
 
 const cell = v => {
   const s = String(v ?? '');
@@ -11,15 +11,17 @@ export function toCsv(rows) {
 }
 
 export function hitsToCsv(hits) {
-  const rows = [['time', 'platform', 'type', 'id', 'event', 'consent', 'page', 'parameters']];
+  const rows = [['time', 'platform', 'type', 'id', 'event', 'status', 'ms', 'consent', 'page', 'parameters']];
   for (const h of hits) {
-    if (h.kind === 'nav') { rows.push([new Date(h.ts).toISOString(), 'navigation', '', '', '', '', h.url, '']); continue; }
+    if (h.kind === 'nav') { rows.push([new Date(h.ts).toISOString(), 'navigation', '', '', '', '', '', '', h.url, '']); continue; }
     rows.push([
       h.ts ? new Date(h.ts).toISOString() : '',
-      PLATFORM_LABELS[h.platform] || h.platform,
+      platformLabel(h.platform),
       h.kind,
       h.id || '',
       h.event || '',
+      h.delivery ? (h.delivery.error || h.delivery.status) : '',
+      h.delivery?.ms ?? '',
       h.consent?.gcs || h.consent?.gcd || '',
       h.params?.dl || h.params?.['context.page.url'] || '',
       Object.entries(h.params || {}).map(([k, v]) => `${k}=${v}`).join('&'),
@@ -51,4 +53,50 @@ export function summaryText({ url, score, findings, pages }) {
   const passes = findings.filter(f => f.severity === 'pass');
   if (passes.length) lines.push('', `✅ ${passes.map(f => f.title).join('; ')}`);
   return lines.join('\n');
+}
+
+// HAR 1.2 of the captured tracking requests (one entry per request; batched GA4 hits share one).
+export function hitsToHar(hits, { pageUrl = '', creator = 'Tracking QA & Client Audit' } = {}) {
+  const seen = new Set();
+  const entries = [];
+  for (const h of hits) {
+    if (h.kind === 'nav' || !h.url) continue;
+    const key = h.requestId || `${h.url}|${h.ts}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let queryString = [];
+    try { queryString = [...new URL(h.url).searchParams].map(([name, value]) => ({ name, value })); } catch { /* keep empty */ }
+    const status = h.delivery?.status ?? 0;
+    entries.push({
+      startedDateTime: new Date(h.ts || Date.now()).toISOString(),
+      time: h.delivery?.ms ?? -1,
+      request: {
+        method: h.method || (h.body ? 'POST' : 'GET'),
+        url: h.url,
+        httpVersion: 'HTTP/1.1',
+        headers: [],
+        queryString,
+        cookies: [],
+        headersSize: -1,
+        bodySize: h.body ? h.body.length : 0,
+        ...(h.body ? { postData: { mimeType: h.body.trim().startsWith('{') ? 'application/json' : 'text/plain', text: h.body } } : {}),
+      },
+      response: {
+        status,
+        statusText: h.delivery?.error || '',
+        httpVersion: 'HTTP/1.1',
+        headers: [],
+        cookies: [],
+        content: { size: 0, mimeType: '' },
+        redirectURL: '',
+        headersSize: -1,
+        bodySize: -1,
+        ...(h.delivery?.error ? { _error: h.delivery.error } : {}),
+      },
+      cache: {},
+      timings: { send: 0, wait: Math.max(0, h.delivery?.ms ?? 0), receive: 0 },
+      comment: `${platformLabel(h.platform)}${h.id ? ` ${h.id}` : ''}${h.event ? ` · ${h.event}` : ''}`,
+    });
+  }
+  return { log: { version: '1.2', creator: { name: creator, version: '1' }, pages: pageUrl ? [{ startedDateTime: entries[0]?.startedDateTime || new Date().toISOString(), id: 'page_1', title: pageUrl, pageTimings: {} }] : [], entries } };
 }

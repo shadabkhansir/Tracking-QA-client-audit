@@ -53,6 +53,10 @@ textarea { width: 100%; font: 12px ui-monospace, monospace; padding: 8px; border
 .row.tight { margin: 6px 0; align-items: center; }
 .spacer { flex: 1; }
 button.sm { padding: 4px 9px; font-size: 12px; }
+.btn-file { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.st { font-size: 10px; font-weight: 600; border-radius: 4px; padding: 0 4px; }
+.st.ok { color: var(--pass); } .st.bad { color: #fff; background: var(--critical); } .st.blk { color: var(--warning); border: 1px solid var(--warning); }
+.src { display: inline-block; font-size: 10px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 .opts { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; font-size: 12px; }
 input[type=search], select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); }
 input[type=search] { width: 100%; }

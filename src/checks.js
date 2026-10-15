@@ -1,7 +1,9 @@
 // Rules engine: turns raw hits + page probe into scored findings.
 // Pure module (no chrome.* APIs) so it is unit-tested under node.
-import { PLATFORM_LABELS, AD_PIXELS } from './detectors.js';
-import { validateGa4, validateMeta, validateTiktok, validateDataLayer, validateCookies, validateRecorders, validateCrossPlatform } from './validators.js';
+import { PLATFORM_LABELS, AD_PIXELS, platformLabel } from './detectors.js';
+import { classifyCookies } from './cookies.js';
+import { validateGa4, validateMeta, validateTiktok, validateDataLayer, validateCookies, validateRecorders, validateCrossPlatform,
+  validateDelivery, validateGoogleAds, validatePlacement, validatePixelHealth, validateShopify } from './validators.js';
 
 export const SEVERITY = { critical: 'critical', warning: 'warning', info: 'info', pass: 'pass' };
 const PENALTY = { critical: 15, warning: 6, info: 0, pass: 0 };
@@ -89,7 +91,7 @@ export function resolveConsent(hits, probe, dlLog = []) {
 export function summarize(hits, probe) {
   const platforms = {};
   const add = (platform, id) => {
-    platforms[platform] ??= { label: PLATFORM_LABELS[platform] || platform, ids: new Set(), scripts: 0, hits: 0, events: {} };
+    platforms[platform] ??= { label: platformLabel(platform), ids: new Set(), scripts: 0, hits: 0, events: {} };
     if (id) platforms[platform].ids.add(String(id));
     return platforms[platform];
   };
@@ -119,8 +121,10 @@ export function summarize(hits, probe) {
  * @param {object[]} [input.postHits] hits captured after an automated consent accept (event validation only)
  * @param {object[]} [input.dlLog] live dataLayer push log from the content script
  * @param {object} [input.consentTest] before/after consent comparison
+ * @param {object[]} [input.cookies] first-party cookie metadata (no values)
+ * @param {boolean} [input.session] true when auditing a multi-page preserved session
  */
-export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog = [], consentTest = null }) {
+export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog = [], consentTest = null, cookies = null, session = false }) {
   const findings = [];
   const platforms = summarize(hits, probe);
   const consent = resolveConsent(hits, probe, dlLog);
@@ -186,7 +190,8 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
     }
   }
 
-  const sgtmHosts = [...new Set(tagHits.filter(h => h.platform === 'ga4' && h.serverSide).map(h => { try { return new URL(h.url).hostname; } catch { return ''; } }).filter(Boolean))];
+  // Only praise the server-side endpoint when it is actually accepting hits.
+  const sgtmHosts = [...new Set(tagHits.filter(h => h.platform === 'ga4' && h.serverSide && !(h.delivery && (h.delivery.status >= 400 || (h.delivery.status === 0 && h.delivery.error)))).map(h => { try { return new URL(h.url).hostname; } catch { return ''; } }).filter(Boolean))];
   if (sgtmHosts.length) {
     findings.push(finding('sgtm-detected', SEVERITY.pass, `Server-side GTM detected (${sgtmHosts.join(', ')})`,
       'GA4 hits go to a first-party server container instead of Google directly, which is more resilient to ad blockers and browser cookie limits.', ''));
@@ -260,6 +265,8 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
       if (v === null || v === undefined) continue;
       const val = decode(v);
       // Meta Advanced Matching: user data must be SHA-256 hashed when sent from the browser.
+      // Google user-provided data has its own Enhanced Conversions check.
+      if (k === 'em' && h.userData) continue;
       if (h.platform === 'meta' && /^ud\[/.test(k)) {
         if (val && !SHA256_RE.test(val)) piiHits.push({ platform: h.platform, id: h.id, param: k, reason: 'unhashed advanced-matching field' });
         continue;
@@ -281,7 +288,18 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   const allHits = [...tagHits, ...postHits.filter(h => h.kind === 'hit')];
   findings.push(...validateGa4(allHits), ...validateMeta(allHits), ...validateTiktok(allHits), ...validateCrossPlatform(allHits));
   findings.push(...validateDataLayer(dlLog, probe));
-  findings.push(...validateCookies(probe, consent.signals));
+  findings.push(...validateCookies(probe, consent.signals, cookies));
+  findings.push(...validateDelivery([...hits, ...postHits]));
+  findings.push(...validateGoogleAds(allHits));
+  findings.push(...validatePlacement(probe, dlLog));
+  const cookieNames = [...new Set([...(cookies || []).map(c => c.name), ...(probe?.cookieNames || [])])];
+  findings.push(...validatePixelHealth(allHits, { session, cookieNames, signals: consent.signals }));
+  findings.push(...validateShopify(allHits, probe));
+  const proxied = [...new Set([...hits, ...postHits].filter(h => h.firstParty && h.platform !== 'ga4').map(h => platformLabel(h.platform)))];
+  if (proxied.length) {
+    findings.push(finding('first-party-tags', SEVERITY.pass, `First-party tag delivery detected (${proxied.join(', ')})`,
+      'These tags load or send data through the site\'s own domain (Google Tag Gateway, server-side GTM or a pixel proxy), which survives ad blockers and browser cookie limits better.', ''));
+  }
   findings.push(...validateRecorders(hits, consent.signals));
   if (consentTest) findings.push(...consentTestFindings(consentTest));
   const hasEcom = allHits.some(h => ['purchase', 'Purchase', 'CompletePayment', 'add_to_cart', 'AddToCart'].includes(h.event));
@@ -302,6 +320,7 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
     platforms,
     consent: { implemented: consent.implemented, signals: consent.signals, cmps: consent.cmps, wasSetLate: consent.wasSetLate },
     consentTest,
+    cookies: cookies ? classifyCookies(cookies) : null,
     counts: {
       critical: findings.filter(f => f.severity === 'critical').length,
       warning: findings.filter(f => f.severity === 'warning').length,
@@ -324,6 +343,21 @@ export function consentTestFindings(t) {
   }
   const after = t.signalsAfter || {};
   const newlyFiring = Object.keys(t.after || {}).filter(p => AD_PIXELS.includes(p) && t.after[p] > 0);
+
+  if (t.mode === 'gpc') {
+    // With GPC on, US privacy laws (e.g. CCPA/CPRA) treat the signal as an opt-out of sale/sharing for ads.
+    const stillFiring = newlyFiring.filter(p => !(p === 'meta' && t.limitedUse?.metaLdu));
+    const googleAds = (t.after?.gads || 0) > 0 && !t.limitedUse?.googleRdp && after.ad_storage?.effective === 'granted';
+    if (stillFiring.length || googleAds) {
+      const names = [...stillFiring.map(p => PLATFORM_LABELS[p]), ...(googleAds ? ['Google Ads'] : [])];
+      out.push(finding('gpc-ignored', SEVERITY.warning, `${names.join(', ')} ${names.length > 1 ? 'keep' : 'keeps'} tracking when the browser sends Global Privacy Control`,
+        'The page was reloaded with Sec-GPC: 1 and navigator.globalPrivacyControl = true. Several US state laws (California, Colorado, Connecticut and others) require honouring GPC as an opt-out of ad sharing.',
+        'Configure the CMP to honour GPC (most have a "respect GPC" setting), or use Meta Limited Data Use (dpo=LDU) and Google restricted data processing (rdp) for GPC visitors. Test as a new visitor: CMPs ignore GPC once a choice is stored.'));
+    } else {
+      out.push(finding('gpc-respected', SEVERITY.pass, 'Ad tracking respects Global Privacy Control', '', ''));
+    }
+    return out;
+  }
 
   if (t.mode === 'reject') {
     const granted = ['ad_storage', 'analytics_storage', 'ad_user_data', 'ad_personalization'].filter(s => after[s]?.effective === 'granted');
@@ -378,11 +412,34 @@ export function aggregatePages(pageResults) {
   findings.sort((a, b) => order[a.severity] - order[b.severity] || b.pages.length - a.pages.length);
   // A pass only counts site-wide if every page passed it.
   const sitewide = findings.filter(f => f.severity !== 'pass' || f.pages.length === pageResults.length);
-  const score = pageResults.length ? Math.round(pageResults.reduce((s, p) => s + p.score, 0) / pageResults.length) : 0;
+
+  // Tag coverage: a platform present on most pages but missing on some usually means an untagged template.
+  const scanned = pageResults.filter(p => !p.findings.some(f => f.id === 'scan-error'));
+  if (scanned.length >= 2) {
+    const gaps = [];
+    for (const key of [...new Set(scanned.flatMap(p => Object.keys(p.platforms || {})))]) {
+      // Conversion-only tags (Google Ads, custom collectors) legitimately fire on a few pages; recorders are optional.
+      if (['clarity', 'hotjar', 'google_tag', 'floodlight', 'gads'].includes(key) || key.startsWith('custom:')) continue;
+      const missing = scanned.filter(p => !p.platforms?.[key]);
+      if (missing.length && scanned.length - missing.length >= Math.ceil(scanned.length / 2)) gaps.push({ key, missing: missing.map(p => p.url) });
+    }
+    if (gaps.length) {
+      sitewide.unshift({ id: 'coverage-gaps', severity: 'warning', title: 'Some pages are missing tags the rest of the site has',
+        detail: gaps.map(g => `${platformLabel(g.key)} missing on ${g.missing.length}/${scanned.length}: ${g.missing.slice(0, 5).join(', ')}${g.missing.length > 5 ? ' …' : ''}`).join(' | '),
+        fix: 'Check these templates (checkout, blog, landing pages often use a different layout) include the GTM snippet and pixels.',
+        pages: [...new Set(gaps.flatMap(g => g.missing))] });
+    } else {
+      sitewide.push({ id: 'coverage-complete', severity: 'pass', title: 'Every scanned page carries the same tags', detail: '', fix: '', pages: scanned.map(p => p.url) });
+    }
+    sitewide.sort((a, b) => order[a.severity] - order[b.severity] || (b.pages?.length || 0) - (a.pages?.length || 0));
+  }
+  const avg = pageResults.length ? Math.round(pageResults.reduce((s, p) => s + p.score, 0) / pageResults.length) : 0;
+  // Coverage gaps only exist at site level, so they cost the site score a warning's worth.
+  const score = Math.max(0, avg - (sitewide.some(f => f.id === 'coverage-gaps') ? PENALTY.warning : 0));
   const platforms = {};
   for (const page of pageResults) {
     for (const [k, p] of Object.entries(page.platforms)) {
-      platforms[k] ??= { label: p.label, ids: new Set(), pages: 0 };
+      platforms[k] ??= { label: p.label || platformLabel(k), ids: new Set(), pages: 0 };
       p.ids.forEach(id => platforms[k].ids.add(id));
       platforms[k].pages++;
     }

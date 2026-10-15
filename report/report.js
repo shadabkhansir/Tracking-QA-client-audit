@@ -2,7 +2,7 @@ import { getAudit, getBrand, listAudits, updateAudit } from '../src/storage.js';
 import { diffFindings, findPrevious } from '../src/diff.js';
 import { findingsToCsv, download, summaryText } from '../src/export.js';
 import { getPlan, LIMITS } from '../src/plan.js';
-import { PLATFORM_LABELS } from '../src/detectors.js';
+import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { getSettings } from '../src/storage.js';
 import { wireTgfLinks, LINKS, TGF } from '../src/brand.js';
@@ -41,11 +41,13 @@ function consentTestHtml(t) {
   if (!t.accepted) return `<h2>Consent banner test</h2><p class="muted">${esc(t.reason || 'The consent banner could not be accepted automatically.')}</p>`;
   const plats = [...new Set([...Object.keys(t.before || {}), ...Object.keys(t.after || {})])];
   const cls = v => (v === 'granted' ? 'g' : v === 'denied' ? 'd' : 'u');
-  return `<h2>Consent banner test</h2>
-    <p>We clicked "${t.mode === 'reject' ? 'reject all' : 'accept all'}" (${esc(t.method)}) and compared what each platform sent before and after.</p>
-    <table><thead><tr><th>Platform</th><th>Requests before</th><th>Requests after ${t.mode === 'reject' ? 'rejecting' : 'accepting'}</th></tr></thead><tbody>
-      ${plats.map(p => `<tr><td>${esc(PLATFORM_LABELS[p] || p)}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('') || '<tr><td colspan="3">No tracking requests in either state.</td></tr>'}
+  const gpc = t.mode === 'gpc';
+  return `<h2>${gpc ? 'Global Privacy Control test' : 'Consent banner test'}</h2>
+    <p>${gpc ? 'We reloaded the page with the browser\'s Global Privacy Control signal on (Sec-GPC: 1 header and navigator.globalPrivacyControl), as a US visitor opting out of ad sharing would, and compared what each platform sent.' : `We clicked "${t.mode === 'reject' ? 'reject all' : 'accept all'}" (${esc(t.method)}) and compared what each platform sent before and after.`}</p>
+    <table><thead><tr><th>Platform</th><th>Requests before</th><th>Requests ${gpc ? 'with GPC on' : `after ${t.mode === 'reject' ? 'rejecting' : 'accepting'}`}</th></tr></thead><tbody>
+      ${plats.map(p => `<tr><td>${esc(platformLabel(p))}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('') || '<tr><td colspan="3">No tracking requests in either state.</td></tr>'}
     </tbody></table>
+    ${t.cookiesAdded?.length ? `<p class="muted" style="margin-top:8px">Cookies set afterwards: ${esc(t.cookiesAdded.join(', '))}</p>` : ''}
     ${t.signalsAfter ? `<p class="muted" style="margin-top:8px">Google consent afterwards: ${['ad_storage', 'analytics_storage', 'ad_user_data', 'ad_personalization'].map(s => `${s} <b class="${cls(t.signalsAfter[s]?.effective)}">${esc(t.signalsAfter[s]?.effective || 'unset')}</b>`).join(' · ')}</p>` : ''}`;
 }
 
@@ -61,11 +63,26 @@ function changesHtml(previous, findings, score) {
     <div><h3 class="sev critical">New (${d.added.length})</h3>${list(d.added)}</div></div>`;
 }
 
+let idLabels = {};
+const withLabel = id => (idLabels[id] ? `${id} (${idLabels[id]})` : id);
+
+function cookieTableHtml(cookies) {
+  if (!cookies?.length) return '';
+  const order = { advertising: 0, analytics: 1, consent: 2, functional: 3, other: 4 };
+  const rows = [...cookies].sort((a, b) => order[a.category] - order[b.category] || a.name.localeCompare(b.name));
+  const life = c => (c.session || !c.expires ? 'Session' : (d => `${d} day${d === 1 ? '' : 's'}`)(Math.max(1, Math.round((c.expires - Date.now()) / 86400000))));
+  return `<h2>Cookies on this page</h2>
+    <p class="muted">First-party cookies present when the page was audited (names and metadata only, no values).</p>
+    <table><thead><tr><th>Cookie</th><th>Vendor</th><th>Purpose</th><th>Domain</th><th>Expires</th></tr></thead><tbody>
+      ${rows.map(c => `<tr><td class="mono">${esc(c.name)}</td><td>${esc(c.vendor || '—')}</td><td>${esc(c.category)}</td><td class="mono">${esc(c.domain)}</td><td>${esc(life(c))}</td></tr>`).join('')}
+    </tbody></table>`;
+}
+
 function platformTable(platforms, isSite, pageCount) {
   const rows = Object.entries(platforms);
   if (!rows.length) return '<p class="muted">No tracking platforms detected.</p>';
   return `<table><thead><tr><th>Platform</th><th>IDs</th>${isSite ? '<th>Found on</th>' : '<th>Events observed</th>'}</tr></thead><tbody>
-    ${rows.map(([k, p]) => `<tr><td>${esc(PLATFORM_LABELS[k] || k)}</td><td class="mono">${esc(p.ids.join(', ') || '—')}</td>
+    ${rows.map(([k, p]) => `<tr><td>${esc(platformLabel(k))}</td><td class="mono">${esc(p.ids.map(withLabel).join(', ') || '—')}</td>
       <td>${isSite ? `${p.pages}/${pageCount} pages` : esc(Object.entries(p.events || {}).map(([e, n]) => `${e} ×${n}`).join(', ') || '—')}</td></tr>`).join('')}
   </tbody></table>`;
 }
@@ -103,7 +120,8 @@ async function render() {
   const savedBrand = await getBrand();
   const brand = LIMITS[plan].customBranding ? savedBrand : { ...savedBrand, logoDataUrl: '', agencyName: '', brandColor: '#2f5bea' };
   document.documentElement.style.setProperty('--brand', brand.brandColor || '#2f5bea');
-  const { showCredit } = await getSettings();
+  const { showCredit, idLabels: labels } = await getSettings();
+  idLabels = labels || {};
 
   const isSite = audit.type === 'site';
   const data = isSite ? audit.site : audit.result;
@@ -151,6 +169,8 @@ async function render() {
     ${consentTable(consent)}
 
     ${consentTestHtml(isSite ? audit.pages.find(p => p.consentTest)?.consentTest : audit.result.consentTest)}
+
+    ${cookieTableHtml(isSite ? audit.pages.find(p => p.cookies?.length)?.cookies : audit.result.cookies)}
 
     ${!isSite && audit.result.session ? `<h2>Funnel steps audited</h2><ol class="steps">${audit.result.session.steps.map(u => `<li>${esc(u)}</li>`).join('')}</ol>` : ''}
 

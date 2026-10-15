@@ -2,6 +2,9 @@
 // Pure functions: no chrome.* APIs, so they run under `node --test`.
 
 const GOOGLE_ID = /^(G|GTM|AW|GT|DC)-[A-Z0-9]+$/i;
+// Vendor-owned hosts. The same payloads on any other host mean a first-party proxy (server-side GTM, Google Tag Gateway, pixel proxies).
+const GOOGLE_HOSTS = /(^|\.)(google-analytics\.com|analytics\.google\.com|googletagmanager\.com|google\.com|googleadservices\.com|doubleclick\.net)$/;
+const isFirstParty = (host, vendorRe) => !vendorRe.test(host);
 
 // gcs = "G1" + ad_storage + analytics_storage, each 1 (granted) / 0 (denied) / - (not set).
 export function parseGcs(gcs) {
@@ -87,21 +90,22 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
       const params = { ...qs, ...Object.fromEntries(new URLSearchParams(line)) };
       return {
         platform: 'ga4', kind: 'hit', id: params.tid, event: params.en || null, params,
-        consent: parseGoogleConsent(params), url, serverSide: !/google-analytics\.com$|analytics\.google\.com$/.test(host),
+        consent: parseGoogleConsent(params), url, serverSide: isFirstParty(host, GOOGLE_HOSTS), firstParty: isFirstParty(host, GOOGLE_HOSTS), userData: parseUserData(params.em),
       };
     });
   }
 
   // GTM container / gtag.js library loads (Google CDN or first-party sGTM).
-  if (/\/gtm\.js$/.test(path) && /^GTM-/i.test(qs.id || '')) return [scriptHit('gtm', qs.id, url)];
+  if (/\/gtm\.js$/.test(path) && /^GTM-/i.test(qs.id || '')) return [scriptHit('gtm', qs.id, url, { firstParty: isFirstParty(host, GOOGLE_HOSTS) })];
   if (/\/gtag\/js$/.test(path) && GOOGLE_ID.test(qs.id || '')) {
-    return [scriptHit(googleIdPlatform(qs.id), qs.id, url, { loader: 'gtag.js' })];
+    return [scriptHit(googleIdPlatform(qs.id), qs.id, url, { loader: 'gtag.js', firstParty: isFirstParty(host, GOOGLE_HOSTS) })];
   }
 
   // Google Ads conversion / remarketing pings carry gcs/gcd too.
   const ads = path.match(/\/pagead\/(?:viewthrough)?conversion\/(\d+)/);
   if (ads && /googleadservices\.com$|doubleclick\.net$|google\.com$/.test(host)) {
-    return [{ platform: 'gads', kind: 'hit', id: `AW-${ads[1]}`, event: qs.label ? 'conversion' : 'remarketing', params: qs, consent: parseGoogleConsent(qs), url }];
+    const params = { ...qs, ...formOrJson(body) };
+    return [{ platform: 'gads', kind: 'hit', id: `AW-${ads[1]}`, event: params.label ? 'conversion' : 'remarketing', params, consent: parseGoogleConsent(params), url, userData: parseUserData(params.em) }];
   }
 
   // Meta Pixel.
@@ -111,26 +115,30 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
     if (cfg) return [scriptHit('meta', cfg[1], url, { loader: 'config' })];
     return [];
   }
-  if (/(^|\.)facebook\.com$/.test(host) && /^\/tr\/?$/.test(path)) {
+  const metaHost = /(^|\.)facebook\.com$/.test(host);
+  if (!metaHost && /\/fbevents\.js$/.test(path)) return [scriptHit('meta', null, url, { firstParty: true })];
+  if (/^\/tr\/?$/.test(path) || (!metaHost && /\/tr\/?$/.test(path))) {
     const bodyParams = body && body.includes('=') && !body.trim().startsWith('{') ? Object.fromEntries(new URLSearchParams(body)) : {};
     const params = { ...qs, ...bodyParams };
-    if (!params.id) return [];
-    return [{ platform: 'meta', kind: 'hit', id: params.id, event: params.ev || null, params, consent: null, url }];
+    // First-party /tr endpoints only count when they carry a Meta-shaped payload (numeric pixel id + event).
+    if (!params.id || (!metaHost && !(/^\d{6,}$/.test(params.id) && params.ev))) return [];
+    return [{ platform: 'meta', kind: 'hit', id: params.id, event: params.ev || null, params, consent: null, url, firstParty: !metaHost }];
   }
 
   // TikTok Pixel.
-  if (host === 'analytics.tiktok.com') {
-    if (/\/pixel\/events\.js$/.test(path)) return [scriptHit('tiktok', qs.sdkid || null, url)];
-    if (/^\/api\/v2\/pixel/.test(path)) {
-      const json = tryJson(body);
-      const events = json ? (Array.isArray(json.batch) ? json.batch : [json]) : [];
-      return events
-        .map(ev => {
-          const id = ev?.context?.pixel?.code || ev?.pixel_code || qs.sdkid || null;
-          return { platform: 'tiktok', kind: 'hit', id, event: ev?.event || null, params: flattenForScan(ev), consent: null, url };
-        })
-        .filter(h => h.id || h.event);
-    }
+  const tiktokHost = host === 'analytics.tiktok.com';
+  if (/\/pixel\/events\.js$/.test(path) && (tiktokHost || qs.sdkid)) return [scriptHit('tiktok', qs.sdkid || null, url, { firstParty: !tiktokHost })];
+  if (/\/api\/v2\/pixel/.test(path)) {
+    const json = tryJson(body);
+    const events = json ? (Array.isArray(json.batch) ? json.batch : [json]) : [];
+    const out = events
+      .map(ev => {
+        const id = ev?.context?.pixel?.code || ev?.pixel_code || qs.sdkid || null;
+        return { platform: 'tiktok', kind: 'hit', id, event: ev?.event ?? null, params: flattenForScan(ev), consent: null, url, firstParty: !tiktokHost };
+      })
+      // On first-party hosts require a TikTok-shaped payload.
+      .filter(h => (tiktokHost ? (h.id || h.event) : h.id));
+    if (out.length || tiktokHost) return out;
   }
 
   return classifyOtherPixels(u, qs, body, url);
@@ -197,6 +205,49 @@ function classifyOtherPixels(u, qs, body, url) {
   if (hotjar) return [scriptHit('hotjar', hotjar[1], url)];
 
   return [];
+}
+
+// Google user-provided data (Enhanced Conversions): em=tv.1~em.<hash>~ph.<hash>~fn.<hash>...
+// Returns which fields are present and whether any value looks like clear text instead of a hash.
+const HASH_RE = /^([a-f0-9]{64}|[A-Za-z0-9_-]{43}=?)$/;
+export function parseUserData(em) {
+  if (typeof em !== 'string' || !em) return null;
+  let raw = em;
+  try { raw = decodeURIComponent(em); } catch { /* keep raw */ }
+  const fields = {};
+  for (const part of raw.split('~')) {
+    const dot = part.indexOf('.');
+    if (dot < 1) continue;
+    const key = part.slice(0, dot);
+    if (key === 'tv') continue;
+    fields[key] = part.slice(dot + 1);
+  }
+  const keys = Object.keys(fields);
+  if (!keys.length) return null;
+  const clearText = keys.filter(k => fields[k] && !HASH_RE.test(fields[k]));
+  return { fields: keys, clearText, hasEmail: 'em' in fields, hasPhone: 'ph' in fields, hasAddress: ['fn', 'ln', 'pc', 'co', 'ct', 'sa', 'rg'].some(k => k in fields) };
+}
+
+// User-defined providers from Settings: { name, match, idParam, eventParam }. `match` is a substring, or /regex/.
+export function classifyCustom(url, body, providers = []) {
+  if (!providers.length) return [];
+  const u = safeUrl(url);
+  if (!u) return [];
+  for (const p of providers) {
+    if (!p || !p.name || !p.match) continue;
+    let hitMatch = false;
+    const re = /^\/(.+)\/([a-z]*)$/.exec(p.match);
+    try { hitMatch = re ? new RegExp(re[1], re[2]).test(url) : url.includes(p.match); } catch { hitMatch = false; }
+    if (!hitMatch) continue;
+    const params = { ...Object.fromEntries(u.searchParams), ...formOrJson(body) };
+    return [{ platform: `custom:${p.name}`, kind: 'hit', id: p.idParam ? (params[p.idParam] ?? null) : null, event: p.eventParam ? (params[p.eventParam] ?? null) : null, params, consent: null, url, custom: true }];
+  }
+  return [];
+}
+
+export function platformLabel(platform) {
+  if (PLATFORM_LABELS[platform]) return PLATFORM_LABELS[platform];
+  return String(platform || '').startsWith('custom:') ? platform.slice(7) : platform;
 }
 
 // Flattens nested JSON into "a.b.c": value pairs so PII scans can treat every platform alike.

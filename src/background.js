@@ -1,4 +1,4 @@
-import { classifyRequest } from './detectors.js';
+import { classifyRequest, classifyCustom } from './detectors.js';
 import { pageProbe, acceptConsent, rejectConsent } from './page-probe.js';
 import { runChecks, aggregatePages, resolveConsent, summarize } from './checks.js';
 import { saveAudit, newId, listAudits, getSettings, listMonitors, saveMonitors } from './storage.js';
@@ -12,6 +12,8 @@ const SETTLE_MS = 3500;
 const CONSENT_SETTLE_MS = 4000;
 const LOAD_TIMEOUT_MS = 30000;
 const MONITOR_ALARM = 'monitor-tick';
+const MAX_BODY_CHARS = 4000;
+const GPC_RULE_ID = 9000;
 
 // tabId -> { url, startedAt, hits[], dl[] }. Mirrored to storage.session so a worker restart keeps live data.
 const tabs = new Map();
@@ -51,7 +53,39 @@ function decodeBody(requestBody) {
 }
 
 function newState(url) {
-  return { url, startedAt: Date.now(), hits: [], dl: [] };
+  return { url, startedAt: Date.now(), hits: [], dl: [], frames: {} };
+}
+
+// User-defined providers, cached so the synchronous webRequest listener can use them.
+let customProviders = [];
+getSettings().then(s => { customProviders = s.customProviders || []; });
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) customProviders = changes.settings.newValue?.customProviders || [];
+});
+
+// Delivery status: requestId -> start time, and results that arrive before the hit is stored.
+const starts = new Map();
+const pendingDelivery = new Map();
+
+function trimMap(m, max = 2000) {
+  while (m.size > max) m.delete(m.keys().next().value);
+}
+
+function recordDelivery(details, outcome) {
+  const start = starts.get(details.requestId);
+  if (start === undefined) return;
+  starts.delete(details.requestId);
+  const delivery = { ...outcome, ms: Math.round(details.timeStamp - start), fromCache: !!details.fromCache };
+  const state = tabs.get(details.tabId);
+  const matched = state ? state.hits.filter(h => h.requestId === details.requestId) : [];
+  if (matched.length) {
+    matched.forEach(h => { h.delivery = delivery; });
+    persistSoon();
+    broadcast({ type: 'hits-updated', tabId: details.tabId });
+  } else {
+    pendingDelivery.set(details.requestId, delivery);
+    trimMap(pendingDelivery, 500);
+  }
 }
 
 // Hits and dataLayer events since the last navigation (a preserved log keeps older pages behind a marker).
@@ -93,17 +127,25 @@ chrome.webRequest.onBeforeRequest.addListener(
       restore().then(() => onNavigate(details.tabId, details.url, details.timeStamp));
       return;
     }
-    const found = classifyRequest({ url: details.url, method: details.method, body: decodeBody(details.requestBody) });
+    const body = decodeBody(details.requestBody);
+    let found = classifyRequest({ url: details.url, method: details.method, body });
+    if (!found.length && customProviders.length) found = classifyCustom(details.url, body, customProviders);
     if (!found.length) return;
+    starts.set(details.requestId, details.timeStamp);
+    trimMap(starts);
     restore().then(() => {
       if (!tabs.has(details.tabId)) tabs.set(details.tabId, newState(details.initiator || ''));
       const state = tabs.get(details.tabId);
       // Redirect hops reuse the requestId; count the request once.
       if (state.hits.slice(-60).some(h => h.requestId === details.requestId)) return;
-      for (const h of found) {
+      const delivery = pendingDelivery.get(details.requestId);
+      pendingDelivery.delete(details.requestId);
+      found.forEach((h, i) => {
         if (state.hits.length >= MAX_HITS_PER_TAB) state.hits.shift();
-        state.hits.push({ ...h, ts: details.timeStamp, frameId: details.frameId, requestId: details.requestId });
-      }
+        // Method + raw body (first hit of a batch only, capped) feed the HAR export.
+        const raw = i === 0 && body ? { body: body.slice(0, MAX_BODY_CHARS) } : {};
+        state.hits.push({ ...h, ...raw, method: details.method, ts: details.timeStamp, frameId: details.frameId, requestId: details.requestId, delivery });
+      });
       persistSoon();
       updateBadge(details.tabId);
       broadcast({ type: 'hits-updated', tabId: details.tabId });
@@ -111,6 +153,16 @@ chrome.webRequest.onBeforeRequest.addListener(
   },
   { urls: ['<all_urls>'] },
   ['requestBody'],
+);
+
+// Did the vendor endpoint accept the hit? Status, timing, and network errors (ad blockers show up as ERR_BLOCKED_BY_CLIENT).
+chrome.webRequest.onCompleted.addListener(
+  details => { if (details.tabId >= 0 && starts.has(details.requestId)) restore().then(() => recordDelivery(details, { status: details.statusCode })); },
+  { urls: ['<all_urls>'] },
+);
+chrome.webRequest.onErrorOccurred.addListener(
+  details => { if (details.tabId >= 0 && starts.has(details.requestId)) restore().then(() => recordDelivery(details, { status: 0, error: details.error })); },
+  { urls: ['<all_urls>'] },
 );
 
 chrome.tabs.onRemoved.addListener(tabId => {
@@ -136,6 +188,50 @@ async function inject(tabId, func, args = []) {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// First-party cookie metadata for the audited page. Values are never read into the result.
+async function cookieTable(url) {
+  if (!chrome.cookies || !/^https?:/.test(url || '')) return null;
+  try {
+    const all = await chrome.cookies.getAll({ url });
+    return all.map(c => ({ name: c.name, domain: c.domain, path: c.path, session: !!c.session, expires: c.expirationDate ? Math.round(c.expirationDate * 1000) : null, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite }));
+  } catch {
+    return null;
+  }
+}
+
+// Global Privacy Control: send Sec-GPC: 1 from this tab and expose navigator.globalPrivacyControl (read by dl-hook.js via sessionStorage).
+async function setGpc(tabId, on) {
+  try {
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: [GPC_RULE_ID + tabId],
+      addRules: on ? [{
+        id: GPC_RULE_ID + tabId,
+        priority: 1,
+        action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Sec-GPC', operation: 'set', value: '1' }] },
+        condition: { tabIds: [tabId], resourceTypes: ['main_frame', 'sub_frame', 'script', 'xmlhttprequest', 'ping', 'image', 'other'] },
+      }] : [],
+    });
+  } catch { /* declarativeNetRequest unavailable */ }
+  await inject(tabId, flag => { try { flag ? sessionStorage.setItem('__tqa_gpc', '1') : sessionStorage.removeItem('__tqa_gpc'); } catch { /* storage blocked */ } }, [on]);
+}
+
+async function reloadAndSettle(tabId) {
+  const loaded = waitForLoad(tabId);
+  await chrome.tabs.reload(tabId);
+  await loaded;
+  await sleep(SETTLE_MS);
+}
+
+// Which frames are Shopify Customer Events sandboxes (custom pixels run in /wpm@…/sandbox/ iframes).
+function sandboxFrames(state) {
+  return Object.entries(state?.frames || {}).filter(([, u]) => /\/(wpm|web-pixels)@[^/]*\/.*sandbox/.test(u)).map(([id]) => Number(id));
+}
+
+function tagSources(hits, state) {
+  const sandbox = new Set(sandboxFrames(state));
+  return hits.map(h => (sandbox.has(h.frameId) ? { ...h, source: 'shopify-sandbox' } : h));
+}
 const countBy = hits => hits.filter(h => h.kind === 'hit').reduce((m, h) => ({ ...m, [h.platform]: (m[h.platform] || 0) + 1 }), {});
 
 // Captures the page as-is, optionally clicks "accept all" and captures again.
@@ -145,12 +241,39 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
   const state = tabs.get(tabId);
   // Session mode audits every page in a preserved log (e.g. product → cart → checkout → thank-you).
   const before = session && state ? { hits: state.hits.filter(h => h.kind !== 'nav'), dl: state.dl } : currentPage(state);
-  const preHits = [...before.hits];
+  const preHits = tagSources([...before.hits], state);
   const url = probe?.url || tabs.get(tabId)?.url || '';
+  const cookiesBefore = await cookieTable(url);
+  let cookiesAfter = null;
   let test = null;
   let postHits = [];
 
-  if (consentTest && probe) {
+  if (consentTest === 'gpc' && probe) {
+    // Baseline is the page as loaded; then reload the same page with GPC on and compare.
+    test = { attempted: true, mode: 'gpc', accepted: true, method: 'Sec-GPC: 1 header + navigator.globalPrivacyControl' };
+    try {
+      await setGpc(tabId, true);
+      await reloadAndSettle(tabId);
+      const after = currentPage(tabs.get(tabId));
+      postHits = tagSources(after.hits.filter(h => !preHits.some(p => p.requestId === h.requestId)), tabs.get(tabId));
+      const postProbe = await inject(tabId, pageProbe, [{}]);
+      test.gpcDetected = !!postProbe?.gpc;
+      Object.assign(test, {
+        before: countBy(preHits),
+        after: countBy(postHits),
+        signalsBefore: resolveConsent(preHits, probe).signals,
+        signalsAfter: resolveConsent(postHits, postProbe || probe).signals,
+        googlePresent: !!(summarize(preHits, probe).ga4 || summarize(preHits, probe).gads),
+        limitedUse: {
+          metaLdu: postHits.some(h => h.platform === 'meta' && /LDU/i.test(h.params?.dpo || '')),
+          googleRdp: postHits.some(h => ['gads', 'ga4'].includes(h.platform) && (h.params?.rdp === '1' || h.params?.npa === '1')),
+        },
+      });
+      cookiesAfter = await cookieTable(url);
+    } finally {
+      await setGpc(tabId, false);
+    }
+  } else if (consentTest && probe) {
     const acceptTs = Date.now();
     const mode = consentTest === 'reject' ? 'reject' : 'accept';
     const res = await inject(tabId, mode === 'reject' ? rejectConsent : acceptConsent);
@@ -158,8 +281,10 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
     if (test.accepted) {
       await sleep(CONSENT_SETTLE_MS);
       const after = currentPage(tabs.get(tabId));
-      postHits = after.hits.filter(h => h.ts >= acceptTs || !preHits.includes(h));
+      postHits = after.hits.filter(h => h.ts >= acceptTs);
+      postHits = tagSources(postHits, tabs.get(tabId));
       const postProbe = await inject(tabId, pageProbe, [{}]);
+      cookiesAfter = await cookieTable(url);
       const platformsBefore = summarize(preHits, probe);
       Object.assign(test, {
         before: countBy(preHits),
@@ -172,7 +297,11 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
     }
   }
 
-  const result = runChecks({ url, hits: preHits, probe, postHits, dlLog: before.dl, consentTest: test });
+  if (test && cookiesBefore && cookiesAfter) {
+    const had = new Set(cookiesBefore.map(c => `${c.name}|${c.domain}`));
+    test.cookiesAdded = cookiesAfter.filter(c => !had.has(`${c.name}|${c.domain}`)).map(c => c.name);
+  }
+  const result = runChecks({ url, hits: preHits, probe, postHits, dlLog: before.dl, consentTest: test, cookies: cookiesBefore, session });
   const steps = session && state ? state.hits.filter(h => h.kind === 'nav').map(h => h.url) : [];
   return { ...result, injectable: !!probe, session: session ? { steps: steps.length ? steps : [url] } : null };
 }
@@ -291,13 +420,26 @@ chrome.notifications.onClicked.addListener(id => {
 // ---- Messages ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Content-script relay: fire-and-forget, no response needed.
-  if (msg.type === 'dl-event') {
+  if (msg.type === 'frame-info') {
     const tabId = sender.tab?.id;
-    if (tabId === undefined || sender.frameId !== 0) return false;
+    if (tabId === undefined || !sender.frameId) return false;
     restore().then(() => {
       if (!tabs.has(tabId)) tabs.set(tabId, newState(sender.tab.url || ''));
       const state = tabs.get(tabId);
-      state.dl.push(msg.event);
+      state.frames = { ...(state.frames || {}), [sender.frameId]: msg.url };
+      persistSoon();
+    });
+    return false;
+  }
+  if (msg.type === 'dl-event') {
+    const tabId = sender.tab?.id;
+    // Top frame, plus Shopify custom-pixel sandboxes (they keep their own dataLayer).
+    const sandbox = /\/(wpm|web-pixels)@[^/]*\/.*sandbox/.test(sender.url || '');
+    if (tabId === undefined || (sender.frameId !== 0 && !sandbox)) return false;
+    restore().then(() => {
+      if (!tabs.has(tabId)) tabs.set(tabId, newState(sender.tab.url || ''));
+      const state = tabs.get(tabId);
+      state.dl.push(sandbox ? { ...msg.event, frame: 'shopify-sandbox' } : msg.event);
       if (state.dl.length > MAX_DL_PER_TAB) state.dl.shift();
       persistSoon();
       broadcast({ type: 'dl-updated', tabId });
@@ -310,7 +452,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case 'get-tab-state': {
         await restore();
         const s = tabs.get(msg.tabId);
-        return { url: s?.url || '', hits: s?.hits || [], dl: s?.dl || [] };
+        return { url: s?.url || '', hits: tagSources(s?.hits || [], s), dl: s?.dl || [] };
       }
       case 'clear-tab': {
         tabs.set(msg.tabId, newState(tabs.get(msg.tabId)?.url || ''));

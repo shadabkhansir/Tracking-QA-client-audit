@@ -1,7 +1,8 @@
 // Event-level validation: ecommerce completeness, naming limits, dedup IDs, dataLayer hygiene, cookies vs consent.
 // Each validator returns findings in the same shape as checks.js.
 import { ecommerceOf } from './params.js';
-import { PLATFORM_LABELS } from './detectors.js';
+import { PLATFORM_LABELS, platformLabel } from './detectors.js';
+import { classifyCookie } from './cookies.js';
 
 const ISO_CURRENCY = /^[A-Z]{3}$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -146,16 +147,14 @@ export function validateDataLayer(dlLog, probe) {
   return out;
 }
 
-const AD_COOKIES = { _fbp: 'Meta', _fbc: 'Meta', _gcl_au: 'Google Ads', _gcl_aw: 'Google Ads', _ttp: 'TikTok', _uetsid: 'Microsoft Ads', _uetvid: 'Microsoft Ads', _pin_unauth: 'Pinterest', _scid: 'Snapchat', _rdt_uuid: 'Reddit', _twclid: 'X' };
-const ANALYTICS_COOKIES = { _ga: 'Google Analytics', _clck: 'Microsoft Clarity', _hjSessionUser: 'Hotjar' };
-
-export function validateCookies(probe, signals) {
-  const names = probe?.cookieNames || [];
+// Uses the full first-party cookie table when available (includes HttpOnly cookies), else document.cookie names.
+export function validateCookies(probe, signals, table = null) {
+  const names = [...new Set([...(table || []).map(c => c.name), ...(probe?.cookieNames || [])])];
   if (!names.length || !signals) return [];
-  const has = map => Object.entries(map).filter(([c]) => names.some(n => n === c || n.startsWith(`${c}_`))).map(([c, vendor]) => `${c} (${vendor})`);
+  const pick = category => names.map(n => ({ n, ...classifyCookie(n) })).filter(c => c.category === category).map(c => `${c.n} (${c.vendor})`);
   const out = [];
-  const ad = signals.ad_storage?.effective === 'denied' ? has(AD_COOKIES) : [];
-  const an = signals.analytics_storage?.effective === 'denied' ? has(ANALYTICS_COOKIES) : [];
+  const ad = signals.ad_storage?.effective === 'denied' ? pick('advertising') : [];
+  const an = signals.analytics_storage?.effective === 'denied' ? pick('analytics') : [];
   if (ad.length || an.length) {
     out.push(f('cookies-without-consent', 'critical', 'Tracking cookies present while consent is denied',
       `Found: ${[...ad, ...an].join(', ')}. Consent signals say denied, but these cookies exist.`,
@@ -189,8 +188,192 @@ export function validateCrossPlatform(hits) {
   const currencies = new Set(seen.map(s => s.currency.toUpperCase()));
   if (values.size > 1 || currencies.size > 1) {
     return [f('cross-platform-mismatch', 'warning', 'Purchase value differs between platforms',
-      seen.map(s => `${PLATFORM_LABELS[s.platform]}: ${s.value} ${s.currency || '(no currency)'}`).join(' · ') + '. Each platform will report different revenue for the same order.',
+      seen.map(s => `${platformLabel(s.platform)}: ${s.value} ${s.currency || '(no currency)'}`).join(' · ') + '. Each platform will report different revenue for the same order.',
       'Read value and currency from one dataLayer variable for every purchase tag. Decide once whether value includes tax and shipping.')];
   }
   return [f('cross-platform-consistent', 'pass', 'Purchase value matches across platforms', '', '')];
+}
+
+// ---- Delivery ----------------------------------------------------------------------------
+const BLOCKED_RE = /BLOCKED_BY_CLIENT|BLOCKED_BY_ADMINISTRATOR|BLOCKED_BY_RESPONSE/;
+const IGNORE_ERRORS = /ERR_ABORTED/; // navigation away or cancelled beacons; not a delivery failure
+
+// Did vendor endpoints accept the requests? "Accepted" means the endpoint answered 2xx/3xx, not that the platform processed the event.
+export function validateDelivery(hits) {
+  const out = [];
+  const withStatus = hits.filter(h => h.delivery);
+  if (!withStatus.length) return out;
+  const byReq = new Map();
+  for (const h of withStatus) if (!byReq.has(h.requestId)) byReq.set(h.requestId, h);
+  const reqs = [...byReq.values()];
+  const blocked = reqs.filter(h => BLOCKED_RE.test(h.delivery.error || ''));
+  const failed = reqs.filter(h => !blocked.includes(h) && (h.delivery.status >= 400 || (h.delivery.status === 0 && h.delivery.error && !IGNORE_ERRORS.test(h.delivery.error))));
+  const label = h => `${platformLabel(h.platform)}${h.id ? ` ${h.id}` : ''}`;
+  const summary = list => [...list.reduce((m, h) => m.set(label(h), [...(m.get(label(h)) || []), h.delivery.status || h.delivery.error]), new Map())]
+    .map(([k, v]) => `${k} (${[...new Set(v)].join(', ')})`).join('; ');
+
+  if (blocked.length) {
+    out.push(f('hits-blocked-locally', 'info', `${blocked.length} tracking request${blocked.length > 1 ? 's were' : ' was'} blocked by this browser`,
+      `Blocked: ${summary(blocked)}. An ad blocker or privacy extension in your browser stopped these, so results for these vendors are incomplete. Real visitors without blockers are not affected.`,
+      'Disable ad blockers for this site (or use a clean Chrome profile) and re-run the audit.'));
+  }
+  const failedScripts = failed.filter(h => h.kind === 'script');
+  const failedHits = failed.filter(h => h.kind !== 'script');
+  if (failedScripts.length) {
+    out.push(f('tag-library-failed', 'critical', 'A tag library failed to load',
+      `${summary(failedScripts)}. Every tag that depends on it is silently missing.`,
+      'Check the container or pixel ID is correct and published (a GTM 404 usually means a wrong or unpublished container ID). For first-party/server-side paths, check the proxy is running.'));
+  }
+  if (failedHits.length) {
+    out.push(f('hits-rejected', 'critical', 'Tracking requests rejected by the endpoint',
+      `${summary(failedHits)}. These events never reached the platform.`,
+      'A 4xx usually means a malformed payload or wrong ID; a 5xx or network error on a first-party endpoint usually means the server-side container or proxy is down.'));
+  }
+  const slow = reqs.filter(h => !failed.includes(h) && !blocked.includes(h) && h.delivery.ms > 3000);
+  if (slow.length) {
+    out.push(f('hits-slow', 'info', `${slow.length} tracking request${slow.length > 1 ? 's' : ''} took over 3 seconds`,
+      `Slow: ${summary(slow.map(h => ({ ...h, delivery: { ...h.delivery, status: `${h.delivery.ms} ms` } })))}. Slow endpoints lose hits when visitors leave quickly.`,
+      'Check server-side container latency and that tags are not waiting on slow scripts.'));
+  }
+  const ok = reqs.filter(h => !failed.includes(h) && !blocked.includes(h) && h.delivery.status >= 200 && h.delivery.status < 400);
+  if (ok.length && !failed.length) {
+    out.push(f('hits-delivered', 'pass', `All ${ok.length} tracking requests accepted by the endpoint`, '', ''));
+  }
+  return out;
+}
+
+// ---- Google Ads conversions + Enhanced Conversions -----------------------------------------
+export function validateGoogleAds(hits) {
+  const out = [];
+  const conv = hits.filter(h => h.platform === 'gads' && h.event === 'conversion');
+  // Clear-text user data on any Google hit (Ads conversions or GA4 user-provided data).
+  const clear = hits.filter(h => ['gads', 'ga4'].includes(h.platform) && h.userData?.clearText?.length);
+  if (clear.length) {
+    const fields = [...new Set(clear.flatMap(h => h.userData.clearText))];
+    out.push(f('ec-clear-text', 'critical', 'Enhanced Conversions user data sent unhashed',
+      `Fields sent in clear text: ${fields.join(', ')} (values not stored). Google expects SHA-256 hashed or normalised data that gtag hashes for you.`,
+      'Pass raw values through gtag("set", "user_data", {...}) or the GTM user-provided data variable so Google hashes them, or hash with SHA-256 after normalising (lowercase, trimmed, E.164 phone).'));
+  }
+  if (!conv.length) return out;
+
+  const rows = conv.map(h => {
+    const p = h.params || {};
+    const value = p.value !== undefined && p.value !== '' ? Number(p.value) : undefined;
+    return { id: h.id, label: p.label || '?', value, currency: p.currency_code || p.cu || p.currency || '', orderId: p.oid || p.transaction_id || '', ec: h.userData };
+  });
+  out.push(f('gads-conversions', 'info', `${rows.length} Google Ads conversion${rows.length > 1 ? 's' : ''} observed`,
+    rows.map(r => `${r.id}/${r.label}: value ${r.value ?? '—'} ${r.currency || ''} · order ID ${r.orderId ? '✓' : '✗'} · Enhanced Conversions ${r.ec ? `✓ (${r.ec.fields.join(', ')})` : '✗'}`).join(' | '), ''));
+
+  if (rows.some(r => r.value !== undefined && Number.isNaN(r.value))) {
+    out.push(f('gads-value-nan', 'warning', 'Google Ads conversion value is not a number', 'Values like "$49.90" are not recorded as conversion value.', 'Send value as a plain number.'));
+  }
+  if (rows.some(r => r.value !== undefined && !Number.isNaN(r.value) && !r.currency)) {
+    out.push(f('gads-currency-missing', 'warning', 'Google Ads conversion value sent without currency', 'Google falls back to the account currency, which misreports value for multi-currency stores.', 'Add currency (ISO 4217) to the conversion tag.'));
+  }
+  if (rows.some(r => r.value > 0 && !r.orderId)) {
+    out.push(f('gads-no-order-id', 'info', 'Google Ads conversion without a transaction ID', 'Without an order ID Google cannot deduplicate conversions when the thank-you page reloads.', 'Set the Transaction ID field in the conversion tag to the order number.'));
+  }
+  if (rows.every(r => !r.ec)) {
+    out.push(f('gads-no-enhanced-conversions', 'info', 'Enhanced Conversions not detected on Google Ads conversions',
+      'No hashed user data (email, phone or address) was sent with the conversion. Enhanced Conversions typically recovers 5–15% of conversions lost to cookie limits.',
+      'Turn on Enhanced Conversions in Google Ads and send user-provided data on the conversion (gtag user_data or the GTM user-provided data variable).'));
+  } else if (!clear.length) {
+    out.push(f('gads-ec-present', 'pass', 'Enhanced Conversions user data sent (hashed)', '', ''));
+  }
+  return out;
+}
+
+// ---- Placement and order -----------------------------------------------------------------
+export function validatePlacement(probe, dlLog) {
+  const out = [];
+  const pl = probe?.placement || {};
+  if (pl.gtmSnippet === 'body') {
+    out.push(f('gtm-not-in-head', 'warning', 'GTM snippet is not in <head>',
+      'The Google Tag Manager loader sits in <body>, so it starts late. Visitors who leave quickly are never tracked, and the consent default may run after other scripts.',
+      'Move the GTM <script> snippet as high in <head> as possible (keep the <noscript> part right after <body>).'));
+  }
+  if (pl.metaBase === 'body') {
+    out.push(f('meta-base-not-in-head', 'warning', 'Meta Pixel base code is not in <head>',
+      'Meta recommends the base code in <head> so PageView fires before visitors leave.',
+      'Move the Meta Pixel base code into <head>, or fire it from GTM on Initialization.'));
+  }
+  const log = (dlLog || []).filter(e => e.type === 'push');
+  const gtagCmds = log.map(e => e.entry?.__gtag).map((a, i) => ({ a, i })).filter(x => x.a);
+  const firstConfig = gtagCmds.find(x => x.a[0] === 'config');
+  const earlyEvent = gtagCmds.find(x => x.a[0] === 'event' && (!firstConfig || x.i < firstConfig.i));
+  if (earlyEvent && firstConfig) {
+    out.push(f('gtag-event-before-config', 'warning', 'gtag event sent before the Google tag was configured',
+      `"${earlyEvent.a[1]}" was pushed before gtag("config", "${firstConfig.a[1]}"). Events sent before config may be dropped or sent without your configuration settings.`,
+      'Call gtag("config", ...) right after gtag("js", new Date()), before any events.'));
+  }
+  const noEvent = log.map(e => e.entry).filter(x => x && typeof x === 'object' && !Array.isArray(x) && !x.__gtag && !('event' in x)
+    && Object.keys(x).some(k => !/^gtm\./.test(k) && !(k === 'ecommerce' && x[k] === null)));
+  if (noEvent.length) {
+    out.push(f('datalayer-push-no-event', 'info', `${noEvent.length} dataLayer push${noEvent.length > 1 ? 'es have' : ' has'} no event key`,
+      'GTM triggers only fire on pushes with an "event". Data-only pushes are fine for setting variables, but tags meant to fire on them never will.',
+      'Add an event name to pushes that should trigger tags, e.g. dataLayer.push({ event: "sign_up", ... }).'));
+  }
+  return out;
+}
+
+// ---- Meta / TikTok helper parity ------------------------------------------------------------
+const META_CONVERSIONS = new Set(['Purchase', 'Lead', 'CompleteRegistration', 'Subscribe', 'StartTrial', 'SubmitApplication', 'Contact', 'Schedule', 'InitiateCheckout', 'AddPaymentInfo']);
+const TIKTOK_CONVERSIONS = new Set(['CompletePayment', 'PlaceAnOrder', 'Purchase', 'SubmitForm', 'CompleteRegistration', 'Subscribe', 'Contact']);
+const TIKTOK_STANDARD = ['AddPaymentInfo', 'AddToCart', 'AddToWishlist', 'ClickButton', 'CompletePayment', 'CompleteRegistration', 'Contact', 'Download',
+  'InitiateCheckout', 'PlaceAnOrder', 'Search', 'SubmitForm', 'Subscribe', 'ViewContent', 'Pageview', 'Purchase', 'Lead', 'ApplicationApproval', 'FindLocation', 'Schedule', 'StartTrial', 'SubmitApplication', 'CustomizeProduct'];
+
+export function validatePixelHealth(hits, { session = false, cookieNames = [], signals = null } = {}) {
+  const out = [];
+  const meta = hits.filter(h => h.platform === 'meta' && h.kind === 'hit');
+  const tt = hits.filter(h => h.platform === 'tiktok' && h.kind === 'hit');
+
+  const badMeta = [...new Set(meta.map(h => h.id).filter(id => id && !/^\d{10,20}$/.test(id)))];
+  if (badMeta.length) out.push(f('meta-invalid-pixel-id', 'warning', 'Meta Pixel ID looks invalid', `IDs: ${badMeta.join(', ')}. Meta pixel IDs are 15–16 digit numbers.`, 'Copy the pixel ID from Events Manager → Data sources.'));
+  const badTt = [...new Set(tt.map(h => h.id).filter(id => id && !/^[A-Z0-9]{15,25}$/.test(id)))];
+  if (badTt.length) out.push(f('tiktok-invalid-pixel-id', 'warning', 'TikTok pixel ID looks invalid', `IDs: ${badTt.join(', ')}. TikTok pixel codes are ~20 uppercase letters and digits.`, 'Copy the pixel code from TikTok Events Manager.'));
+
+  if (tt.some(h => !h.event)) out.push(f('tiktok-empty-event', 'warning', 'TikTok event sent without a name', 'TikTok drops events with an empty event name.', 'Pass an event name to ttq.track(), e.g. ttq.track("ViewContent").'));
+  const ttLower = new Map(TIKTOK_STANDARD.map(e => [e.toLowerCase(), e]));
+  const ttCase = [...new Set(tt.map(h => h.event).filter(e => e && ttLower.has(e.toLowerCase()) && ttLower.get(e.toLowerCase()) !== e))];
+  if (ttCase.length) out.push(f('tiktok-event-case', 'warning', 'TikTok standard event has the wrong case', `${ttCase.map(e => `"${e}" should be "${ttLower.get(e.toLowerCase())}"`).join('; ')}. Wrong case makes it a custom event that can't be used for optimisation.`, 'Use the exact standard event name.'));
+
+  const ttPay = tt.filter(h => ['CompletePayment', 'Purchase', 'PlaceAnOrder'].includes(h.event));
+  if (ttPay.length && !ttPay.some(h => h.params?.['context.user.email'] || h.params?.['context.user.phone_number'] || h.params?.['context.user.sha256_email'] || h.params?.['context.user.sha256_phone_number'])) {
+    out.push(f('tiktok-no-user-data', 'info', 'TikTok purchase without email or phone', 'Advanced matching data improves TikTok match rate and attribution on purchases.', 'Call ttq.identify({ email, phone_number }) before the purchase event (TikTok hashes it).'));
+  }
+  if (tt.length && cookieNames.length && signals?.ad_storage?.effective !== 'denied' && !cookieNames.includes('_ttp')) {
+    out.push(f('tiktok-no-first-party-cookie', 'warning', 'TikTok first-party cookie (_ttp) not found', 'TikTok events fire but its first-party cookie is missing, so attribution falls back to weaker signals.', 'Enable "First-party cookies" in TikTok Events Manager → Pixel settings.'));
+  }
+
+  const auto = [...new Set(meta.map(h => h.event).filter(e => ['SubscribedButtonClick', 'Microdata'].includes(e)))];
+  if (auto.length) out.push(f('meta-automatic-events', 'info', 'Meta automatic events are on', `Seen: ${auto.join(', ')}. Meta infers events from button clicks and page metadata.`, 'Check automatic events do not duplicate your explicit events; turn them off in Events Manager if they do.'));
+
+  if (!session) {
+    const mConv = [...new Set(meta.map(h => h.event).filter(e => META_CONVERSIONS.has(e)))];
+    if (mConv.length > 1) out.push(f('meta-multiple-conversions', 'warning', 'Several Meta conversion events on one page load', `${mConv.join(', ')} fired on the same page. Without separate user actions this inflates conversions.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
+    const tConv = [...new Set(tt.map(h => h.event).filter(e => TIKTOK_CONVERSIONS.has(e)))];
+    if (tConv.length > 1) out.push(f('tiktok-multiple-conversions', 'warning', 'Several TikTok conversion events on one page load', `${tConv.join(', ')} fired on the same page.`, 'Make sure each conversion fires only on its own action or confirmation page.'));
+  }
+  return out;
+}
+
+// ---- Shopify Customer Events (custom pixels) ------------------------------------------------
+const SANDBOX_URL = /\/(wpm|web-pixels)@[^/]*\/|\/web-pixels?(@|-)|\/sandbox\/modern\//;
+const PAGE_URL_KEYS = ['dl', 'context.page.url', 'url', 'p', 'page_url', 'pu'];
+
+export function validateShopify(hits, probe) {
+  const out = [];
+  const sandboxUrl = hits.filter(h => h.kind === 'hit' && PAGE_URL_KEYS.some(k => SANDBOX_URL.test(String(h.params?.[k] || ''))));
+  if (sandboxUrl.length) {
+    const vendors = [...new Set(sandboxUrl.map(h => platformLabel(h.platform)))];
+    out.push(f('shopify-sandbox-url', 'critical', 'Shopify custom pixel reports the sandbox URL as the page URL',
+      `${vendors.join(', ')} receive a /wpm@…/sandbox/ address instead of the real page, which breaks page reports, URL-based audiences and conversion rules.`,
+      'In the custom pixel, set the page URL from event.context.document.location.href (e.g. page_location for GA4, dl for Meta) instead of relying on window.location.'));
+  }
+  const fromSandbox = hits.filter(h => h.source === 'shopify-sandbox' && h.kind === 'hit');
+  if (fromSandbox.length) {
+    out.push(f('shopify-custom-pixels', 'info', `${fromSandbox.length} event${fromSandbox.length > 1 ? 's' : ''} sent from Shopify custom pixels`,
+      `Vendors: ${[...new Set(fromSandbox.map(h => platformLabel(h.platform)))].join(', ')}. These run in Shopify's Customer Events sandbox.`, ''));
+  }
+  return out;
 }

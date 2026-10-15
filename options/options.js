@@ -11,7 +11,10 @@ async function load() {
   const brand = await getBrand();
   FIELDS.forEach(f => { $(f).value = brand[f] || ''; });
   setLogo(brand.logoDataUrl);
-  $('showCredit').checked = (await getSettings()).showCredit !== false;
+  const settings = await getSettings();
+  $('showCredit').checked = settings.showCredit !== false;
+  $('idLabels').value = Object.entries(settings.idLabels || {}).map(([k, v]) => `${k} = ${v}`).join('\n');
+  $('customProviders').value = (settings.customProviders || []).map(p => [p.name, p.match, p.idParam, p.eventParam].join(' | ')).join('\n');
 
   const plan = await getPlan();
   $('plan-name').textContent = plan === 'pro' ? 'Pro' : 'Free';
@@ -48,13 +51,18 @@ $('clear-logo').addEventListener('click', () => { setLogo(''); $('logo').value =
 
 $('dev-pro').addEventListener('change', async () => {
   await setPlan($('dev-pro').checked ? 'pro' : 'free');
-  wireTgfLinks(document, 'options');
-load();
+  load();
 });
+
+const parseLabels = text => Object.fromEntries(text.split('\n').map(l => l.split('=')).filter(p => p.length >= 2 && p[0].trim())
+  .map(([k, ...v]) => [k.trim(), v.join('=').trim()]).filter(([, v]) => v));
+const parseProviders = text => text.split('\n').map(l => l.split('|').map(x => x.trim())).filter(p => p[0] && p[1])
+  .map(([name, match, idParam = '', eventParam = '']) => ({ name, match, idParam, eventParam }));
 
 $('save').addEventListener('click', async () => {
   const brand = Object.fromEntries(FIELDS.map(f => [f, $(f).value.trim()]));
   await setBrand({ ...brand, logoDataUrl });
+  await setSettings({ idLabels: parseLabels($('idLabels').value), customProviders: parseProviders($('customProviders').value) });
   $('status').textContent = 'Saved';
   setTimeout(() => { $('status').textContent = ''; }, 1500);
 });

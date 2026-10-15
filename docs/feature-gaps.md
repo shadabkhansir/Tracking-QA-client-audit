@@ -6,6 +6,8 @@ Priority reflects our buyer (agencies and freelancers auditing client sites), no
 
 ## P1: build next
 
+> **Status (v0.4.0, 2026-10-15): all 10 P1 items are built**, with unit tests and real-browser tests. Next up is the P2 list below.
+
 | # | Gap | Who has it | Why it matters for audits | Effort |
 |---|---|---|---|---|
 | 1 | **Hit delivery status**: HTTP status, size and latency of every tracking request; flag 4xx/5xx and blocked hits | ObservePoint (size/latency/status), Stape (4xx/5xx in sGTM preview) | The nearest an extension can get to users' #1 ask: "did the platform actually receive it?" Today we only see that a request was sent | S (`webRequest.onCompleted` / `onErrorOccurred`) |

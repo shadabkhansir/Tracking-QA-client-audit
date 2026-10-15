@@ -34,6 +34,14 @@ WHAT IT CHECKS
 • Tags: Google Analytics 4 (including server-side GTM endpoints on your own domain), Google Tag Manager, the Google tag, Google Ads, Floodlight, Meta Pixel, TikTok Pixel, LinkedIn Insight Tag, Pinterest Tag, Snap Pixel, X (Twitter) Pixel, Microsoft Ads UET, Reddit Pixel, Microsoft Clarity and Hotjar.
 • Google Consent Mode v2: missing, v1-only or late defaults; whether "accept" actually updates consent; the default, update and current state of every signal.
 • Consent stress test: clicks "Accept all" or "Reject all" on the banner (OneTrust, Cookiebot, Usercentrics, Didomi, Complianz or a generic button) and compares what every platform sent before and after.
+• Global Privacy Control test: reloads the page with the browser's GPC opt-out signal on and checks whether ad tags still fire (required by several US state privacy laws).
+• Delivery: whether every tracking request was actually accepted by the vendor (HTTP status and timing), tag libraries that fail to load (e.g. a GTM 404), and hits blocked by an ad blocker in your browser.
+• Google Ads: conversion label, value, currency and order ID per conversion, and Enhanced Conversions user data (present, hashed or leaking in clear text).
+• Shopify: events from Customer Events custom pixels, and the common bug where they report Shopify's sandbox URL instead of the real page.
+• Placement and order: GTM snippet or Meta base code outside <head>, events sent before the Google tag is configured, dataLayer pushes without an event, several conversions firing on one page load.
+• Pixel health: invalid Meta or TikTok pixel IDs, empty or wrong-case TikTok events, missing TikTok first-party cookie, Meta automatic events.
+• Cookies: every first-party cookie on the page with vendor, purpose and expiry (names only, never values).
+• First-party and proxied tags (Google Tag Gateway, server-side GTM, pixel proxies) are detected, and you can add your own custom providers.
 • Pixels, cookies or session recorders that run while consent is denied.
 • Ecommerce: purchases missing transaction_id, value, currency or items; duplicate purchases; purchase values that differ between GA4, Meta and TikTok.
 • Meta and TikTok event rules: wrong-case standard events, missing content IDs, missing event_id for Conversions API deduplication, malformed advanced matching.
@@ -41,10 +49,12 @@ WHAT IT CHECKS
 • Personal data (such as email addresses) leaking into tracking payloads.
 
 TOOLS FOR THE JOB
-• Request inspector: every tracking hit with readable parameter names, parsed GA4 items and consent strings. Filter, search, and export to CSV or JSON.
+• Request inspector: every tracking hit with readable parameter names, parsed GA4 items, consent strings and delivery status. Filter, search, and export to CSV, JSON or HAR.
+• Label IDs ("G-ABC123 = Main property") so panels and reports read like your client's setup.
 • dataLayer timeline: every push in order from the first line of the page, even before GTM loads.
 • Funnel mode: preserve the log across pages and audit a whole journey (product → cart → checkout → thank-you).
-• Multi-page scan: audit a list of URLs in background tabs as a first-time visitor.
+• Multi-page scan: audit a list of URLs in background tabs as a first-time visitor, with a coverage check that spots templates missing tags the rest of the site has.
+• Import an audit someone exported to view their report.
 • Pop-out window pinned to one tab.
 
 CLIENT-READY REPORTS
@@ -110,12 +120,22 @@ Saves the user's audits (findings, tag IDs, scores, page URLs), report branding 
 
 **webRequest**
 ```
-Core feature. The Requests tab and every audit rely on seeing the tracking requests a page sends (for example GA4 /g/collect, facebook.com/tr, analytics.tiktok.com). The extension uses only a non-blocking onBeforeRequest listener with requestBody, because GA4, TikTok and LinkedIn send event data in POST bodies. Each request is matched in memory against a fixed list of tracking endpoints; non-matching requests are discarded immediately and never stored. The extension never blocks, modifies or redirects any request.
+Core feature. The Requests tab and every audit rely on seeing the tracking requests a page sends (for example GA4 /g/collect, facebook.com/tr, analytics.tiktok.com). The extension uses a non-blocking onBeforeRequest listener with requestBody, because GA4, TikTok and LinkedIn send event data in POST bodies, plus non-blocking onCompleted and onErrorOccurred listeners to record the HTTP status and timing of those same tracking requests (so users can see whether a hit was accepted, failed or was blocked). Each request is matched in memory against a fixed list of tracking endpoints and any custom endpoints the user configured; non-matching requests are discarded immediately and never stored. The extension never blocks, modifies or redirects any request with webRequest.
 ```
 
 **scripting**
 ```
 When the user clicks "Run audit", "Use links from this page" or runs a consent test or scan, the extension injects a bundled function (chrome.scripting.executeScript, MAIN world) into the audited tab to read its tag configuration: the dataLayer, Google's consent state (google_tag_data.ics), configured Meta/TikTok pixel IDs, which consent-management platform is present, cookie names (not values) and same-site links. For the optional consent test it clicks "Accept all" or "Reject all" on the cookie banner. All injected code ships inside the extension package.
+```
+
+**cookies**
+```
+The audit lists the first-party cookies on the audited page with their vendor, purpose, domain and expiry, and checks whether advertising or analytics cookies exist while the visitor has not consented. chrome.cookies.getAll is called only for the URL of the tab being audited, only when the user runs an audit or scan, and only cookie names and metadata are kept; cookie values are never read into results or stored. HttpOnly cookies (such as some analytics cookies) are not visible to page scripts, which is why the cookies permission is needed.
+```
+
+**declarativeNetRequestWithHostAccess**
+```
+Used only for the optional Global Privacy Control test the user starts from the Audit, Scan or Monitor tab. For the duration of that test the extension adds one session rule, scoped to the single tab under test, that sets the "Sec-GPC: 1" request header, reloads the page to see whether ad tags honour the opt-out signal, and then removes the rule. No other rules exist; the extension never blocks or redirects requests.
 ```
 
 **alarms**
@@ -141,6 +161,11 @@ Users audit their own and their clients' websites, which can be on any domain, s
 **Content script: src/content/dl-hook.js on http://*/* and https://*/*, world MAIN, run_at document_start**
 ```
 Records dataLayer.push() calls in the order they happen for the dataLayer tab and the dataLayer checks (overwritten dataLayer, ecommerce not cleared, consent commands). It must run in the page's MAIN world at document_start because pushes made before Google Tag Manager loads, and calls after GTM replaces push(), are otherwise lost, and because window.dataLayer is only visible from the page's own JavaScript world. It only wraps dataLayer.push and the dataLayer property setter, passes every call through unchanged, and posts a sanitised copy (depth- and size-limited, functions and DOM nodes removed) to the relay script via window.postMessage. It makes no network requests and does not modify the page.
+```
+
+**Content scripts on Shopify custom-pixel sandboxes (http(s)://*/wpm@* and http(s)://*/web-pixels@*, all_frames)**
+```
+The same two scripts (dl-hook.js in the MAIN world and relay.js in the isolated world) also run inside the iframes Shopify uses for Customer Events custom pixels, which keep their own dataLayer. relay.js in those frames sends its own frame URL to the service worker so tracking requests from the sandbox can be labelled as coming from a Shopify custom pixel. These match patterns only cover Shopify's pixel sandbox paths, not other iframes.
 ```
 
 **Content script: src/content/relay.js on http://*/* and https://*/*, isolated world, run_at document_start**
@@ -195,7 +220,7 @@ No account or login is needed.
 2. Click the toolbar icon. The side panel opens.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
-5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after.
+5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
 6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains report branding and the switch for the small "Made with ... by The Growth Folks®" footer credit.
 
 Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Monitoring and custom report branding are gated behind a Pro plan that is not purchasable yet; reviewers can ignore those tabs.

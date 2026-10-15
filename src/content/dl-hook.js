@@ -3,6 +3,10 @@
 (() => {
   if (window.__tqaHooked) return;
   window.__tqaHooked = true;
+  // GPC test: the service worker sets this flag and reloads; expose the signal before any page script runs.
+  try {
+    if (sessionStorage.getItem('__tqa_gpc') === '1') Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { configurable: true, get: () => true });
+  } catch { /* storage blocked */ }
   const MAX_DEPTH = 4;
   const clean = (v, d = 0) => {
     if (typeof v === 'function') return '[fn]';
