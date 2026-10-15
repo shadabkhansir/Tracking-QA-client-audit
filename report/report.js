@@ -4,6 +4,8 @@ import { findingsToCsv, download, summaryText } from '../src/export.js';
 import { getPlan, LIMITS } from '../src/plan.js';
 import { PLATFORM_LABELS } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
+import { getSettings } from '../src/storage.js';
+import { wireTgfLinks, LINKS, TGF } from '../src/brand.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SEV_LABEL = { critical: 'Critical', warning: 'Warning', info: 'Note', pass: 'Pass' };
@@ -82,6 +84,15 @@ function findingsHtml(findings, isSite, pageCount) {
     ${passes.length ? `<h2>What's working</h2><ul class="passes">${passes.map(f => `<li><span>${esc(f.title)}</span></li>`).join('')}</ul>` : ''}`;
 }
 
+// The user's own branding stays primary; this is a small credit line they can switch off in Settings.
+// On the Free plan the existing "Generated with Tracking QA" watermark still applies when the credit is off.
+function footerCredit(customBranding, showCredit) {
+  if (showCredit) {
+    return `<span class="credit${customBranding ? '' : ' watermark'}">Made with <a href="${esc(LINKS.landing('report-footer'))}" target="_blank" rel="noopener">${esc(TGF.extension)}</a> by ${esc(TGF.name)}</span>`;
+  }
+  return customBranding ? '' : '<span class="watermark">Generated with Tracking QA</span>';
+}
+
 async function render() {
   const id = new URLSearchParams(location.search).get('id');
   const audit = id && await getAudit(id);
@@ -92,6 +103,7 @@ async function render() {
   const savedBrand = await getBrand();
   const brand = LIMITS[plan].customBranding ? savedBrand : { ...savedBrand, logoDataUrl: '', agencyName: '', brandColor: '#2f5bea' };
   document.documentElement.style.setProperty('--brand', brand.brandColor || '#2f5bea');
+  const { showCredit } = await getSettings();
 
   const isSite = audit.type === 'site';
   const data = isSite ? audit.site : audit.result;
@@ -147,12 +159,12 @@ async function render() {
     </tbody></table>${audit.truncated ? `<p class="muted">${audit.truncated} more URLs were not scanned (plan limit).</p>` : ''}` : ''}
 
     <h2>Method</h2>
-    <p class="muted">Pages were loaded in a standard Chrome browser and the network requests sent to Google, Meta and TikTok were inspected, together with the page's tag configuration. Results reflect the visitor state at the time of the scan (typically before any cookie banner interaction). Server-side events (Conversions API, Measurement Protocol) are not visible from the browser and are not covered.</p>
+    <p class="muted">Pages were loaded in a standard Chrome browser and the network requests sent to the analytics and advertising platforms listed above were inspected, together with the page's tag configuration. Results reflect the visitor state at the time of the scan (typically before any cookie banner interaction). Server-side events (Conversions API, Measurement Protocol) are not visible from the browser and are not covered.</p>
 
     <div class="foot">
       <span>${esc(brand.agencyName)}${brand.contact ? ` · ${esc(brand.contact)}` : ''}</span>
       ${brand.ctaText && LIMITS[plan].customBranding ? `<a class="cta" href="${esc(/^https?:\/\//.test(brand.ctaUrl || '') ? brand.ctaUrl : '#')}">${esc(brand.ctaText)}</a>` : ''}
-      ${LIMITS[plan].customBranding ? '' : '<span class="watermark">Generated with Tracking QA</span>'}
+      ${footerCredit(LIMITS[plan].customBranding, showCredit !== false)}
     </div>`;
 
   document.getElementById('toolbar-note').textContent = plan === 'pro' ? '' : 'Free plan: upgrade to remove the watermark and add your logo.';
@@ -176,4 +188,5 @@ document.getElementById('copy').addEventListener('click', async e => {
   e.target.textContent = 'Copied';
   setTimeout(() => { e.target.textContent = 'Copy summary'; }, 1200);
 });
+wireTgfLinks(document.querySelector('.toolbar'), 'report-toolbar');
 render();

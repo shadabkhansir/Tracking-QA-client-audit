@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Tracking QA & Client Audit",
+  "name": "Tracking QA & Client Audit by The Growth Folks®",
   "short_name": "Tracking QA",
-  "version": "0.2.0",
-  "description": "Audit GA4, GTM, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads and Reddit tags plus Consent Mode v2, then send clients a branded report.",
+  "version": "0.3.0",
+  "description": "Audit GA4, GTM, Meta, TikTok and 10 more tags plus Consent Mode v2, then send clients a branded report. By The Growth Folks®",
+  "homepage_url": "https://thegrowthfolks.com/tools/tracking-qa",
   "minimum_chrome_version": "116",
   "permissions": [
     "sidePanel",

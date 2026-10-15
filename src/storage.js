@@ -48,7 +48,8 @@ export function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export const DEFAULT_SETTINGS = { preserveLog: false };
+// showCredit: the small "Made with … by The Growth Folks®" line in client reports (on by default, user can turn it off).
+export const DEFAULT_SETTINGS = { preserveLog: false, showCredit: true };
 
 export async function getSettings() {
   const { settings = {} } = await chrome.storage.local.get('settings');

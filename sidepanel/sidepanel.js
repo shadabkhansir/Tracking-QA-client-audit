@@ -4,6 +4,7 @@ import { describeParams } from '../src/params.js';
 import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId } from '../src/storage.js';
 import { getPlan, getLimits } from '../src/plan.js';
 import { hitsToCsv, download, summaryText } from '../src/export.js';
+import { wireTgfLinks } from '../src/brand.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -24,6 +25,8 @@ async function currentTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
 }
+
+wireTgfLinks(document, 'panel-footer');
 
 // ---- Tabs -----------------------------------------------------------------------------
 document.querySelectorAll('.tabs button').forEach(btn => {
