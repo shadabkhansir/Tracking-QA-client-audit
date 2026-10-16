@@ -1,7 +1,7 @@
-# Landing page brief: Tracking QA & Client Audit
+# Landing page brief: Pixel & Tag Checker
 
 _For the session that builds thegrowthfolks.com. Source of truth for features and plans: this repository
-(`shadabkhansir/tracking-qa-client-audit`, branch `claude/charming-edison-ts8soj` until merged to `main`). Written 2026-10-15._
+(`shadabkhansir/tag-checker-client-audit`, branch `claude/charming-edison-ts8soj` until merged to `main`). Written 2026-10-15._
 
 ## 1. What to build
 
@@ -9,15 +9,15 @@ The extension already links to these URLs, so **each one must exist** at launch:
 
 | URL | Purpose | Linked from |
 |---|---|---|
-| `/tools` | Index of TGF tools. Tracking QA is the first card. | (site nav) |
-| `/tools/tracking-qa` | **Main landing page** (sections below) | Panel header, report footer credit, Settings, store listing |
-| `/tools/tracking-qa/pricing` | Free vs Pro table, FAQ, buy buttons (or waitlist until Pro launches) | Every upgrade prompt in the extension |
-| `/tools/tracking-qa/privacy` | Privacy policy: publish `PRIVACY.md` from this repo **verbatim** (it's what the Chrome Web Store review is checked against) | Panel footer, report toolbar, store listing |
-| `/tools/tracking-qa/welcome` | Opened once after install: 3-step quick start | Extension install event |
+| `/tools` | Index of TGF tools. Tag Checker is the first card. | (site nav) |
+| `/tools/tag-checker` | **Main landing page** (sections below) | Panel header, report footer credit, Settings, store listing |
+| `/tools/tag-checker/pricing` | Free vs Pro table, FAQ, buy buttons (or waitlist until Pro launches) | Every upgrade prompt in the extension |
+| `/tools/tag-checker/privacy` | Privacy policy: publish `PRIVACY.md` from this repo **verbatim** (it's what the Chrome Web Store review is checked against) | Panel footer, report toolbar, store listing |
+| `/tools/tag-checker/welcome` | Opened once after install: 3-step quick start | Extension install event |
 | `/learn` | Existing TGF content hub (only link to it) | Panel footer, report toolbar |
 
 Add at Pro launch (not before):
-- `/tools/tracking-qa/activate`: how to activate a licence key.
+- `/tools/tag-checker/activate`: how to activate a licence key.
 - Site-level terms of service and a refund policy (14 days).
 - `/account`: redirect to the Dodo Payments customer portal.
 
@@ -25,14 +25,14 @@ Incoming links carry `utm_source=chrome-extension`. Upgrade prompts use `utm_med
 
 ## 2. Product facts (use exactly; don't invent more)
 
-- **Name:** Tracking QA & Client Audit by The Growth Folks®. Short name: **Tracking QA**.
+- **Name:** Pixel & Tag Checker by The Growth Folks®. Short name: **Tag Checker**.
 - **What it is:** a free Chrome extension (side panel). It audits a website's analytics and ad tracking plus cookie-consent setup, then produces a client-ready PDF report.
 - **Who it's for:**
   - agencies and freelance marketers auditing client sites;
   - in-house marketing, analytics and ecommerce teams;
   - Shopify and WooCommerce store owners.
 - **One-line pitch:** *Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then send clients a polished report.*
-- **Positioning:** Free tools each cover one platform (Tag Assistant for Google, Meta Pixel Helper, TikTok Pixel Helper), and none of them produce a client report. Tracking QA checks all of them in one panel, tests consent, and turns the result into a report you can send.
+- **Positioning:** Free tools each cover one platform (Tag Assistant for Google, Meta Pixel Helper, TikTok Pixel Helper), and none of them produce a client report. Tag Checker checks all of them in one panel, tests consent, and turns the result into a report you can send.
 - **Install:** Chrome Web Store link: `<CWS_URL, paste once published>`. Use a placeholder button until then.
 - **Privacy promise (true, and important to buyers):**
   - All analysis runs locally in the browser.
@@ -108,7 +108,7 @@ Incoming links carry `utm_source=chrome-extension`. Upgrade prompts use `utm_med
 | All 15 platforms, custom providers, every check and fix | ✓ | ✓ |
 | Consent tests (accept, reject, GPC), cookie table, funnel audit | ✓ | ✓ |
 | Request and dataLayer inspectors, CSV/JSON/HAR export | ✓ | ✓ |
-| Client PDF report | ✓ with a small "Made with Tracking QA" credit | **White-label**: your logo, brand colour, contact line and call-to-action button; credit optional |
+| Client PDF report | ✓ with a small "Made with Tag Checker" credit | **White-label**: your logo, brand colour, contact line and call-to-action button; credit optional |
 | "Changes since last audit" in reports | One-line preview | **Full before/after list** |
 | Multi-page scan | 3 pages | **50 pages** |
 | Saved audits | Last 5 | **500** |
@@ -126,7 +126,7 @@ The Chrome Web Store forbids advertising features users can't get.
 
 Planned later (mention only as "coming later", or leave out): an **Agency** plan with cloud monitoring, shareable report links, team seats and 500-page scans.
 
-## 3. Page structure for `/tools/tracking-qa`
+## 3. Page structure for `/tools/tag-checker`
 
 1. **Hero**
    - Headline idea: "Audit every tracking tag and consent setup in one click, then send the client a report."
@@ -139,7 +139,7 @@ Planned later (mention only as "coming later", or leave out): an **Agency** plan
 4. **Consent testing deep-dive:** accept/reject/GPC, before vs after.
 5. **Client report showcase:** report screenshot, white-label callout (Pro).
 6. **Comparison table** vs Tag Assistant, Meta Pixel Helper, TikTok Pixel Helper and Omnibug. Use only facts from `docs/competitive-analysis.md` in this repo, and be fair: say Tag Assistant is better for GTM Preview debugging.
-7. **Pricing:** Free vs Pro summary, linking to `/tools/tracking-qa/pricing`.
+7. **Pricing:** Free vs Pro summary, linking to `/tools/tag-checker/pricing`.
 8. **Privacy:** "Your clients' data never leaves your browser", with a link to the privacy policy.
 9. **FAQ** (below).
 10. **Final CTA**, plus a cross-link to The Growth Folks services: "Need us to fix what it finds?"
@@ -158,7 +158,7 @@ Planned later (mention only as "coming later", or leave out): an **Agency** plan
 
 ## 4. SEO
 
-- **Title:** `Tracking QA: GA4, Meta & TikTok Pixel + Consent Mode Audit (Chrome)`
+- **Title:** `Tag Checker: GA4, Meta & TikTok Pixel + Consent Mode Audit (Chrome)`
 - **Meta description:** around 150 characters, based on the one-line pitch.
 - **Target keywords:**
   - GA4 debugger Chrome extension

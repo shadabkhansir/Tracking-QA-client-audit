@@ -21,8 +21,8 @@ Work in **test mode** first, then repeat in live mode (Dodo can copy products fr
     - Licence key entitlement on
     - Activation limit **5**: one browser uses one activation, and reinstalls use a new one (see section 3)
   - The two products:
-    - *Tracking QA Pro (Monthly)*: $19/month
-    - *Tracking QA Pro (Yearly)*: $190/year
+    - *Pixel & Tag Checker Pro (Monthly)*: $19/month
+    - *Pixel & Tag Checker Pro (Yearly)*: $190/year
   - Optional: *TGF All-Access* (Monthly and Yearly), activation limit 10.
 - **Discount code** for the launch offer: about 21% off, limited to 100 uses.
 - Create a **payment link** for each product.

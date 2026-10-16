@@ -34,11 +34,11 @@ One Dodo business, one product per plan and billing period, with licence keys tu
 
 | Product (Dodo) | Price | Licence key activations | Unlocks |
 |---|---|---|---|
-| Tracking QA Pro (Monthly) | $19/mo | 5 | Tracking QA → Pro |
-| Tracking QA Pro (Yearly) | $190/yr | 5 | Tracking QA → Pro |
+| Pixel & Tag Checker Pro (Monthly) | $19/mo | 5 | Tag Checker → Pro |
+| Pixel & Tag Checker Pro (Yearly) | $190/yr | 5 | Tag Checker → Pro |
 | _Next extension_ Pro (Monthly / Yearly) | your price | 5 | That extension → Pro |
 | **TGF All-Access** (Monthly / Yearly) | e.g. $39/mo, $390/yr | 10 | Every TGF extension → Pro |
-| _Later:_ Tracking QA Agency | $59–79/mo | 5 | Tracking QA → Agency (needs the backend) |
+| _Later:_ Tag Checker Agency | $59–79/mo | 5 | Tag Checker → Agency (needs the backend) |
 
 How the extension decides:
 1. On **Activate**, it sends the key to Dodo's public endpoint. Dodo replies with the **business ID** and **product ID** the key belongs to.
@@ -53,11 +53,11 @@ export const LICENSE_CONFIG = {
   enabled: true,
   provider: 'dodo',
   mode: 'live',                       // 'test' while you try it with Dodo test mode
-  extension: 'tracking-qa',
+  extension: 'tag-checker',
   storeId: 'bus_XXXXXXXX',            // Dodo dashboard → Business settings
   products: { 'pdt_MONTHLY': 'pro', 'pdt_YEARLY': 'pro' },
   bundleProducts: { 'pdt_ALLACCESS_M': 'pro', 'pdt_ALLACCESS_Y': 'pro' },
-  checkoutUrl: 'https://thegrowthfolks.com/tools/tracking-qa/pricing',
+  checkoutUrl: 'https://thegrowthfolks.com/tools/tag-checker/pricing',
   manageUrl: 'https://thegrowthfolks.com/account',   // or Dodo's customer portal link
   revalidateDays: 3,
   graceDays: 7,

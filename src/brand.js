@@ -1,8 +1,8 @@
 // The Growth Folks® links used across the extension UI. utm_content says where in the UI a click came from.
 export const TGF = {
   name: 'The Growth Folks®',
-  extension: 'Tracking QA & Client Audit',
-  slug: 'tracking-qa',
+  extension: 'Pixel & Tag Checker',
+  slug: 'tag-checker',
   email: 'team@thegrowthfolks.com',
 };
 
@@ -18,10 +18,10 @@ export function tgfUrl(path, content) {
 }
 
 export const LINKS = {
-  landing: content => tgfUrl(`/tools/${TGF.slug}`, content),
-  welcome: content => tgfUrl(`/tools/${TGF.slug}/welcome`, content),
-  privacy: content => tgfUrl(`/tools/${TGF.slug}/privacy`, content),
-  learn: content => tgfUrl('/learn', content),
+  landing: content => tgfUrl(`/tools/${TGF.slug}/`, content),
+  welcome: content => tgfUrl(`/tools/${TGF.slug}/welcome/`, content),
+  privacy: content => tgfUrl(`/tools/${TGF.slug}/privacy/`, content),
+  learn: content => tgfUrl('/learn/', content),
   contact: `mailto:${TGF.email}?subject=${encodeURIComponent(TGF.extension)}`,
 };
 

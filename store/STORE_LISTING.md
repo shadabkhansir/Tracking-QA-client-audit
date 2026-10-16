@@ -1,4 +1,4 @@
-# Chrome Web Store listing: Tracking QA & Client Audit by The Growth Folks®
+# Chrome Web Store listing: Pixel & Tag Checker by The Growth Folks®
 
 Copy-paste source for the Chrome Web Store Developer Dashboard. Everything below was checked against the code in
 this repo (manifest v1.0.0).
@@ -10,7 +10,7 @@ this repo (manifest v1.0.0).
 **Name** (from manifest, 47 chars)
 
 ```
-Tracking QA & Client Audit by The Growth Folks®
+Pixel & Tag Checker by The Growth Folks®
 ```
 
 **Summary** (manifest `description`, 112/132 chars)
@@ -28,7 +28,7 @@ Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then
 ```
 Find broken tracking before your client does.
 
-Tracking QA & Client Audit checks the analytics and ad tags on any web page, tests whether the cookie banner really controls them, and turns the result into a clean report you can send to a client. Open the side panel, click "Run audit", and get a 0–100 score with a prioritised list of fixes.
+Pixel & Tag Checker checks the analytics and ad tags on any web page, tests whether the cookie banner really controls them, and turns the result into a clean report you can send to a client. Open the side panel, click "Run audit", and get a 0–100 score with a prioritised list of fixes.
 
 WHAT IT CHECKS
 • Tags: Google Analytics 4 (including server-side GTM endpoints on your own domain), Google Tag Manager, the Google tag, Google Ads, Floodlight, Meta Pixel, TikTok Pixel, LinkedIn Insight Tag, Pinterest Tag, Snap Pixel, X (Twitter) Pixel, Microsoft Ads UET, Reddit Pixel, Microsoft Clarity and Hotjar.
@@ -69,9 +69,9 @@ FREE VERSION
 Every check, the inspectors, consent and GPC tests, funnel audits and exports are free. Multi-page scans cover up to 3 pages at a time, the last 5 audits are kept, and reports carry a small credit line. A Pro plan with white-label reports, larger scans and monitoring is planned.
 
 PRIVACY
-Everything runs in your browser. The extension has no server, no analytics and no third-party code, and it sends no data anywhere. Saved audits stay in your browser's extension storage until you delete them. Full policy: https://thegrowthfolks.com/tools/tracking-qa/privacy
+Everything runs in your browser. The extension has no server, no analytics and no third-party code, and it sends no data anywhere. Saved audits stay in your browser's extension storage until you delete them. Full policy: https://thegrowthfolks.com/tools/tag-checker/privacy
 
-Built by The Growth Folks®: https://thegrowthfolks.com/tools/tracking-qa
+Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker
 ```
 
 > Note before publishing: the Free/Pro split in `src/plan.js` has no payment flow yet (Pro can only be switched on
@@ -95,9 +95,9 @@ Screenshots show the real extension UI rendered with sample data for a fictional
 
 **URLs**
 
-- Official URL / homepage: `https://thegrowthfolks.com/tools/tracking-qa`
-- Support URL: `https://thegrowthfolks.com/tools/tracking-qa` (support email: team@thegrowthfolks.com)
-- Privacy policy URL: `https://thegrowthfolks.com/tools/tracking-qa/privacy` (source text: `../PRIVACY.md`)
+- Official URL / homepage: `https://thegrowthfolks.com/tools/tag-checker`
+- Support URL: `https://thegrowthfolks.com/tools/tag-checker` (support email: team@thegrowthfolks.com)
+- Privacy policy URL: `https://thegrowthfolks.com/tools/tag-checker/privacy` (source text: `../PRIVACY.md`)
 
 ---
 
@@ -106,7 +106,7 @@ Screenshots show the real extension UI rendered with sample data for a fictional
 ### Single purpose
 
 ```
-Tracking QA & Client Audit has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known tracking platforms (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar), reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
+Pixel & Tag Checker has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known tracking platforms (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar), reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
 ```
 
 ### Permission justifications

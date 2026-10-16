@@ -1,9 +1,9 @@
-# Tracking QA & Client Audit by The Growth Folks®
+# Pixel & Tag Checker by The Growth Folks®
 
 Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity and Hotjar tags plus Google Consent Mode v2 on any page, then turns the result into a branded client report.
 
-- Landing page: https://thegrowthfolks.com/tools/tracking-qa
-- Privacy policy: https://thegrowthfolks.com/tools/tracking-qa/privacy (source: [`PRIVACY.md`](PRIVACY.md))
+- Landing page: https://thegrowthfolks.com/tools/tag-checker
+- Privacy policy: https://thegrowthfolks.com/tools/tag-checker/privacy (source: [`PRIVACY.md`](PRIVACY.md))
 - Support: team@thegrowthfolks.com
 - Chrome Web Store listing copy, permission justifications and graphics: [`store/`](store/)
 - Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md)
@@ -30,7 +30,7 @@ The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing 
   - editable analyst notes and "Prepared for"
   - call-to-action button
   - CSV/JSON/summary export
-  - small "Made with Tracking QA & Client Audit by The Growth Folks®" credit in the footer, switchable off in Settings
+  - small "Made with Pixel & Tag Checker by The Growth Folks®" credit in the footer, switchable off in Settings
 - **Pop-out window** pinned to a tab.
 
 - **Delivery status**: HTTP status and timing for every tracking request. Flags tag libraries that fail to load (e.g. a GTM 404), hits rejected by the endpoint, and hits blocked by an ad blocker in the auditor's own browser.

@@ -6,14 +6,14 @@ const DAY = 86400000;
 const memStorage = () => { const m = new Map(); return { get: async k => m.get(k), set: async (k, v) => m.set(k, v), remove: async k => m.delete(k), m }; };
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
-const dodoCfg = { enabled: true, provider: 'dodo', mode: 'test', extension: 'tracking-qa', storeId: 'bus_me', products: { pdt_pro_m: 'pro', pdt_pro_y: 'pro' }, bundleProducts: { pdt_all: 'pro' }, variants: {}, revalidateDays: 3, graceDays: 7 };
+const dodoCfg = { enabled: true, provider: 'dodo', mode: 'test', extension: 'tag-checker', storeId: 'bus_me', products: { pdt_pro_m: 'pro', pdt_pro_y: 'pro' }, bundleProducts: { pdt_all: 'pro' }, variants: {}, revalidateDays: 3, graceDays: 7 };
 
 function dodoServer({ business = 'bus_me', product = 'pdt_pro_m', activateStatus = 200, valid = true, validateStatus = 200, down = false } = {}) {
   const calls = [];
   const fetchImpl = async (url, opts) => {
     calls.push({ url, body: JSON.parse(opts.body) });
     if (down) throw new Error('offline');
-    if (url.endsWith('/activate')) return activateStatus === 200 ? json(200, { id: 'lki_1', business_id: business, name: 'x', license_key_id: 'lic_1', created_at: '', product: { product_id: product, name: 'Tracking QA Pro' }, customer: { customer_id: 'c', name: 'n', email: 'e@x.com' } }) : json(activateStatus, {});
+    if (url.endsWith('/activate')) return activateStatus === 200 ? json(200, { id: 'lki_1', business_id: business, name: 'x', license_key_id: 'lic_1', created_at: '', product: { product_id: product, name: 'Pixel & Tag Checker Pro' }, customer: { customer_id: 'c', name: 'n', email: 'e@x.com' } }) : json(activateStatus, {});
     if (url.endsWith('/validate')) return json(validateStatus, { valid });
     if (url.endsWith('/deactivate')) return json(200, {});
     return json(404, {});

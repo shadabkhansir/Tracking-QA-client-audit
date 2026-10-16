@@ -1,8 +1,8 @@
-# Privacy Policy: Tracking QA & Client Audit by The Growth Folks®
+# Privacy Policy: Pixel & Tag Checker by The Growth Folks®
 
 _Last updated: 2026-10-15_
 
-Tracking QA & Client Audit ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
+Pixel & Tag Checker ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
 analytics and advertising tags on websites you choose to audit. Everything it does happens inside your own browser.
 
 ## Summary
@@ -94,7 +94,7 @@ The extension is a professional tool for marketers and analysts and is not direc
 
 ## Changes
 
-If this policy changes, the new version will be published at https://thegrowthfolks.com/tools/tracking-qa/privacy with
+If this policy changes, the new version will be published at https://thegrowthfolks.com/tools/tag-checker/privacy with
 a new "Last updated" date.
 
 ## Contact

@@ -1,4 +1,4 @@
-# Tracking QA & Client Audit by The Growth Folks® (Chrome extension)
+# Pixel & Tag Checker by The Growth Folks® (Chrome extension)
 
 ## Brand and design: always
 Follow the TGF design system: the `tgf-design-system` skill (`.claude/skills/tgf-design-system/`), i.e. `brand/GUIDELINES.md` with values from `brand/tokens.css`.

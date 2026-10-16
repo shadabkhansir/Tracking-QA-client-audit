@@ -187,7 +187,7 @@ function promoHtml({ w, h, big }) {
   </style></head><body>
     <div class="wrap">
       <div class="icon"><img src="ICON"></div>
-      <h1>Tracking QA &amp;<br>Client Audit</h1>
+      <h1>Pixel &amp;<br>Tag Checker</h1>
       <p>${big ? 'Audit GA4, GTM, Meta, TikTok and Consent Mode v2 in one click, then send a branded client report.' : 'Tag &amp; Consent Mode audits with branded client reports.'}</p>
       <div class="by">${mark(big ? 18 : 10, true)}</div>
     </div>

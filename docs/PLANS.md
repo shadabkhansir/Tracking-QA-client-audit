@@ -19,7 +19,7 @@ _Written 2026-10-15 for v0.4.x. Limits live in `src/plan.js`; this document is t
 | CSV / JSON / HAR export, copy summary | ✓ | ✓ | ✓ |
 | Consent tests: accept, reject, GPC (current page) | ✓ | ✓ | ✓ |
 | Funnel / session audit, cookie table, ID labels | ✓ | ✓ | ✓ |
-| Client report (PDF) | ✓ with Tracking QA credit + default branding | **White-label**: logo, colour, contact, CTA button, credit optional | ✓ |
+| Client report (PDF) | ✓ with Tag Checker credit + default branding | **White-label**: logo, colour, contact, CTA button, credit optional | ✓ |
 | Multi-page scan | 3 pages | **50 pages**, consent test on every page | 500 pages, sitemap import |
 | Saved audits (history) | Last 5 | **500** | Unlimited, cloud-synced |
 | "Changes since last audit" in reports | Teaser only | **✓** | ✓ |
@@ -63,13 +63,13 @@ The Chrome Web Store's own payments were shut down years ago, so you need a thir
 
 **1. Business setup (you)**
 - Create the provider account and complete verification (KYC, payout bank).
-- Create products: *Tracking QA Pro (monthly)* and *(yearly)*, with license keys enabled and activation limit 3 (laptop + desktop + spare).
+- Create products: *Pixel & Tag Checker Pro (monthly)* and *(yearly)*, with license keys enabled and activation limit 3 (laptop + desktop + spare).
 - Optional 7-day free trial; set renewal reminder emails.
 
 **2. Website pages on thegrowthfolks.com (you)**
-- `/tools/tracking-qa/pricing`: the plan table above. State that Pro monitoring runs while Chrome is open.
+- `/tools/tag-checker/pricing`: the plan table above. State that Pro monitoring runs while Chrome is open.
 - Terms of service and a refund policy (e.g. 14 days, no questions asked). Paddle requires these; everyone else should have them too.
-- A post-checkout page: "Copy your license key → open Tracking QA → Settings → Activate".
+- A post-checkout page: "Copy your license key → open Tag Checker → Settings → Activate".
 
 **3. Extension code (we build; tell us the provider)**
 - `src/license.js`: `activate(key)`, `validate()`, `deactivate()` against the provider API. Cache `{plan, key, instanceId, validatedAt}` in `chrome.storage.local`.

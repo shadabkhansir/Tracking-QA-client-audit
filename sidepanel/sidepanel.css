@@ -1,4 +1,4 @@
-/* Tracking QA side panel + settings, on The Growth Folks® design system.
+/* Pixel & Tag Checker side panel + settings, on The Growth Folks® design system.
    Colours, type, radii and spacing come only from ../src/brand/tokens.css (loaded first). Dense app UI sizes (GUIDELINES §6).
    Every class used by sidepanel.js / options.js is kept. */
 * { box-sizing: border-box; }

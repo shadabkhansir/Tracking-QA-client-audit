@@ -47,7 +47,7 @@ export function download(filename, content, type) {
 // Plain-text summary for email or Slack.
 export function summaryText({ url, score, findings, pages }) {
   const issues = findings.filter(f => f.severity === 'critical' || f.severity === 'warning');
-  const lines = [`Tracking audit: ${url}${pages ? ` (${pages} pages)` : ''}`, `Score: ${score}/100`, ''];
+  const lines = [`Pixel & Tag Checker audit: ${url}${pages ? ` (${pages} pages)` : ''}`, `Score: ${score}/100`, ''];
   if (!issues.length) lines.push('No critical issues or warnings found.');
   for (const f of issues) lines.push(`${f.severity === 'critical' ? '🔴' : '🟠'} ${f.title}${f.fix ? `\n   Fix: ${f.fix}` : ''}`);
   const passes = findings.filter(f => f.severity === 'pass');
@@ -56,7 +56,7 @@ export function summaryText({ url, score, findings, pages }) {
 }
 
 // HAR 1.2 of the captured tracking requests (one entry per request; batched GA4 hits share one).
-export function hitsToHar(hits, { pageUrl = '', creator = 'Tracking QA & Client Audit' } = {}) {
+export function hitsToHar(hits, { pageUrl = '', creator = 'Pixel & Tag Checker by The Growth Folks®' } = {}) {
   const seen = new Set();
   const entries = [];
   for (const h of hits) {

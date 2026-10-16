@@ -113,12 +113,12 @@ function findingsHtml(findings, isSite, pageCount) {
 }
 
 // The user's own branding stays primary; this is a small credit line they can switch off in Settings.
-// On the Free plan the existing "Generated with Tracking QA" watermark still applies when the credit is off.
+// On the Free plan the existing "Generated with Pixel & Tag Checker" watermark still applies when the credit is off.
 function footerCredit(customBranding, showCredit) {
   if (showCredit) {
     return `<span class="credit${customBranding ? '' : ' watermark'}">Made with <a href="${esc(LINKS.landing('report-footer'))}" target="_blank" rel="noopener">${esc(TGF.extension)}</a> by ${esc(TGF.name)}</span>`;
   }
-  return customBranding ? '' : '<span class="watermark">Generated with Tracking QA</span>';
+  return customBranding ? '' : '<span class="watermark">Generated with Pixel &amp; Tag Checker</span>';
 }
 
 async function render() {
@@ -146,11 +146,11 @@ async function render() {
   current = { audit, data, isSite, pageCount };
   const consent = isSite ? audit.pages.find(p => p.consent)?.consent : audit.result.consent;
   const date = new Date(audit.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  document.title = `Tracking audit – ${audit.host} – ${new Date(audit.createdAt).toISOString().slice(0, 10)}`;
+  document.title = `Tag audit – ${audit.host} – ${new Date(audit.createdAt).toISOString().slice(0, 10)}`;
 
   el.innerHTML = `
     <div class="head">
-      <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="${esc(brand.agencyName || 'Agency logo')}">` : brand.agencyName ? `<div class="agency">${esc(brand.agencyName)}</div>` : '<div class="agency"><span class="tgf-logo" aria-hidden="true">TGF</span>Tracking QA</div>'}</div>
+      <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="${esc(brand.agencyName || 'Agency logo')}">` : brand.agencyName ? `<div class="agency">${esc(brand.agencyName)}</div>` : '<div class="agency"><span class="tgf-logo" aria-hidden="true">TGF</span>Pixel &amp; Tag Checker</div>'}</div>
       <div class="meta"><span class="prep${(audit.preparedFor ?? brand.preparedFor) ? '' : ' empty'}">Prepared for <span id="prepared-for" contenteditable="true" data-placeholder="Client name">${esc(audit.preparedFor ?? brand.preparedFor ?? '')}</span><br></span>${esc(date)}</div>
     </div>
     <h1>Tracking &amp; Consent Audit</h1>

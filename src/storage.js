@@ -92,7 +92,7 @@ export async function saveMonitors(monitors) {
 export async function importAudit(data) {
   const ok = data && typeof data === 'object' && typeof data.url === 'string'
     && ((data.type === 'page' && Array.isArray(data.result?.findings)) || (data.type === 'site' && Array.isArray(data.site?.findings) && Array.isArray(data.pages)));
-  if (!ok) throw new Error('This file is not a Tracking QA audit export.');
+  if (!ok) throw new Error('This file is not a Pixel & Tag Checker audit export.');
   const audit = JSON.parse(JSON.stringify(data));
   // Imported files are untrusted: force numeric and enum fields to safe values before anything renders them.
   const num = v => (Number.isFinite(+v) ? +v : 0);

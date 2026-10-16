@@ -7,7 +7,7 @@ export const LICENSE_CONFIG = {
   provider: 'dodo',
   // Dodo only: 'test' while trying it out, 'live' for real customers.
   mode: 'test',
-  extension: 'tracking-qa',
+  extension: 'tag-checker',
   // Your business/store ID (Dodo: "bus_…", Lemon Squeezy: numeric store id). Keys from any other merchant are
   // rejected: licence endpoints are public, so this check is what stops other sellers' keys working.
   storeId: null,
@@ -19,7 +19,7 @@ export const LICENSE_CONFIG = {
   variants: {},
   // Pricing page (used by generic upgrade prompts) and, once products exist, direct checkout links per period,
   // e.g. { monthly: 'https://checkout.dodopayments.com/buy/pdt_…', yearly: '…' }.
-  checkoutUrl: 'https://thegrowthfolks.com/tools/tracking-qa/pricing',
+  checkoutUrl: 'https://thegrowthfolks.com/tools/tag-checker/pricing/',
   checkoutUrls: {},
   // Shown when a key hits its activation limit (e.g. after reinstalling), so the buyer can ask for a reset.
   supportEmail: 'team@thegrowthfolks.com',
