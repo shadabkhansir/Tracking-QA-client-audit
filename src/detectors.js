@@ -147,7 +147,48 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
     if (out.length || tiktokHost) return out;
   }
 
+  const openai = classifyOpenAI(host, path, qs, body, url);
+  if (openai) return openai;
+
   return classifyOtherPixels(u, qs, body, url);
+}
+
+// OpenAI / ChatGPT Ads (docs/research/PLATFORM-SPECS.md §1, checked 2026-10-16):
+// - SDK oaiq.min.js on bzrcdn.openai.com;
+// - browser events on bzr.openai.com/v1/sdk/events: JSON body via sendBeacon/fetch
+//   ({ obref, oppref, user, events: [{ type, id, timestamp_ms, source_url, custom_event_name, data }] }),
+//   or the no-JS image tag (GET with pid, event, event_id, oppref, data[...]);
+// - bzr.openai.com/v1/events is the server Conversions API and must never be called from page code.
+export const OPENAI_INTERNAL_EVENTS = new Set(['oai::diagnostic', 'openai::sdk_init']);
+function classifyOpenAI(host, path, qs, body, url) {
+  if (host === 'bzrcdn.openai.com') return /\/sdk\/oaiq(\.min)?\.js$/.test(path) ? [scriptHit('openai', null, url)] : [];
+  if (host !== 'bzr.openai.com') return null;
+  if (/^\/v1\/events\/?$/.test(path)) {
+    return [{ platform: 'openai', kind: 'hit', id: qs.pid || null, event: 'conversions_api', params: { ...qs }, consent: null, url, capiInBrowser: true }];
+  }
+  if (!/^\/v1\/sdk\/events\/?$/.test(path)) return [];
+  const json = typeof body === 'string' && body.length < 65536 ? tryJson(body) : null;
+  if (json && Array.isArray(json.events)) {
+    const shared = {};
+    if (json.oppref) shared.oppref = String(json.oppref);
+    if (json.obref) shared.obref = String(json.obref);
+    if (json.user && typeof json.user === 'object') Object.assign(shared, flattenForScan(json.user, 'user'));
+    return json.events.filter(ev => ev && typeof ev === 'object').map(ev => {
+      const type = typeof ev.type === 'string' ? ev.type : null;
+      const params = { pid: qs.pid, sv: qs.sv, ...shared, ...flattenForScan(ev) };
+      return { platform: 'openai', kind: 'hit', id: qs.pid || null, event: type === 'custom' && ev.custom_event_name ? ev.custom_event_name : type, params, consent: null, url, internal: OPENAI_INTERNAL_EVENTS.has(type) };
+    });
+  }
+  // Image tag (GET) or an unparsable body: query parameters only.
+  if (!qs.pid && !qs.event) return [];
+  const params = { ...qs };
+  if (params.event_id) params.id = params.event_id;
+  for (const [k, v] of Object.entries(qs)) {
+    const m = k.match(/^data\[(\w+)\]$/);
+    if (m) params[`data.${m[1]}`] = v;
+  }
+  params.type = qs.event;
+  return [{ platform: 'openai', kind: 'hit', id: qs.pid || null, event: qs.event === 'custom' && qs.custom_event_name ? qs.custom_event_name : (qs.event || null), params, consent: null, url, imageTag: true }];
 }
 
 function formOrJson(body) {
@@ -288,9 +329,10 @@ export const PLATFORM_LABELS = {
   reddit: 'Reddit Pixel',
   clarity: 'Microsoft Clarity',
   hotjar: 'Hotjar',
+  openai: 'ChatGPT Ads (OpenAI)',
 };
 
 // Non-Google ad pixels: no Consent Mode, so the CMP itself has to gate them.
-export const AD_PIXELS = ['meta', 'tiktok', 'linkedin', 'pinterest', 'snapchat', 'x', 'reddit', 'uet'];
+export const AD_PIXELS = ['meta', 'tiktok', 'linkedin', 'pinterest', 'snapchat', 'x', 'reddit', 'uet', 'openai'];
 // Session recorders: should wait for analytics consent.
 export const SESSION_RECORDERS = ['clarity', 'hotjar'];

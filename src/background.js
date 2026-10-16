@@ -325,7 +325,7 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
     const acceptTs = Date.now();
     const mode = consentTest === 'reject' ? 'reject' : 'accept';
     const res = await inject(tabId, mode === 'reject' ? rejectConsent : acceptConsent);
-    test = { attempted: true, mode, accepted: !!res?.accepted, method: res?.method || null, reason: res?.reason || null };
+    test = { attempted: true, mode, accepted: !!res?.accepted, method: res?.method || null, reason: res?.reason || null, tChoice: acceptTs };
     if (test.accepted) {
       await sleep(CONSENT_SETTLE_MS);
       const after = currentPage(tabs.get(tabId));
@@ -349,7 +349,10 @@ async function auditTab(tabId, { consentTest = false, session = false } = {}) {
     const had = new Set(cookiesBefore.map(c => `${c.name}|${c.domain}`));
     test.cookiesAdded = cookiesAfter.filter(c => !had.has(`${c.name}|${c.domain}`)).map(c => c.name);
   }
-  const result = runChecks({ url, hits: preHits, probe, postHits, dlLog: before.dl, consentTest: test, cookies: cookiesBefore, session });
+  // Page-load time for the consent timeline: the last navigation marker in this tab's log.
+  const navs = (state?.hits || []).filter(h => h.kind === 'nav');
+  const t0 = (session ? navs[0]?.ts : navs[navs.length - 1]?.ts) || null;
+  const result = runChecks({ url, hits: preHits, probe, postHits, dlLog: before.dl, consentTest: test, cookies: cookiesBefore, session, t0 });
   const steps = session && state ? state.hits.filter(h => h.kind === 'nav').map(h => h.url) : [];
   return { ...result, injectable: !!probe, session: session ? { steps: steps.length ? steps : [url] } : null };
 }

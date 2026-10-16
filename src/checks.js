@@ -1,9 +1,10 @@
 // Rules engine: turns raw hits + page probe into scored findings.
 // Pure module (no chrome.* APIs) so it is unit-tested under node.
 import { PLATFORM_LABELS, AD_PIXELS, platformLabel } from './detectors.js';
+import { buildConsentTimeline, timelineFindings } from './consent-timeline.js';
 import { classifyCookies } from './cookies.js';
 import { validateGa4, validateMeta, validateTiktok, validateDataLayer, validateCookies, validateRecorders, validateCrossPlatform,
-  validateDelivery, validateGoogleAds, validatePlacement, validatePixelHealth, validateShopify } from './validators.js';
+  validateDelivery, validateGoogleAds, validatePlacement, validatePixelHealth, validateShopify, validateOpenAI, validateMetaSensitive, openAIUnhashedFields } from './validators.js';
 
 export const SEVERITY = { critical: 'critical', warning: 'warning', info: 'info', pass: 'pass' };
 const PENALTY = { critical: 15, warning: 6, info: 0, pass: 0 };
@@ -125,7 +126,10 @@ export function summarize(hits, probe) {
  * @param {object[]} [input.cookies] first-party cookie metadata (no values)
  * @param {boolean} [input.session] true when auditing a multi-page preserved session
  */
-export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog = [], consentTest = null, cookies = null, session = false }) {
+export function runChecks({ url, hits: rawHits = [], probe = null, postHits: rawPost = [], dlLog = [], consentTest = null, cookies = null, session = false, t0 = null }) {
+  // SDK-internal pings (e.g. OpenAI diagnostics) stay visible in the Requests tab but are not audited.
+  const hits = rawHits.filter(h => !h.internal);
+  const postHits = rawPost.filter(h => !h.internal);
   const findings = [];
   const platforms = summarize(hits, probe);
   const consent = resolveConsent(hits, probe, dlLog);
@@ -289,6 +293,8 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
       }
       if (EMAIL_RE.test(val)) piiHits.push({ platform: h.platform, id: h.id, param: k, reason: 'email address in payload' });
     }
+    // ChatGPT Ads user fields must be SHA-256 (location fields excepted).
+    for (const k of openAIUnhashedFields(h)) piiHits.push({ platform: h.platform, id: h.id, param: k, reason: 'unhashed user field' });
   }
   if (piiHits.length) {
     const uniq = [...new Map(piiHits.map(p => [`${p.platform}|${p.param}`, p])).values()];
@@ -315,6 +321,9 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   const cookieNames = [...new Set([...(cookies || []).map(c => c.name), ...(probe?.cookieNames || [])])];
   findings.push(...validatePixelHealth(allHits, { session, cookieNames, signals: consent.signals }));
   findings.push(...validateShopify(allHits, probe));
+  const pageUrls = [url, ...[...hits, ...postHits].filter(h => h.kind === 'nav').map(h => h.url)].filter(Boolean);
+  findings.push(...validateOpenAI(allHits, { pageUrls, cookieNames }));
+  findings.push(...validateMetaSensitive(allHits));
   const proxied = [...new Set([...hits, ...postHits].filter(h => h.firstParty && h.platform !== 'ga4').map(h => platformLabel(h.platform)))];
   if (proxied.length) {
     findings.push(finding('first-party-tags', SEVERITY.pass, `First-party tag delivery detected (${proxied.join(', ')})`,
@@ -322,6 +331,16 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
   }
   findings.push(...validateRecorders(hits, consent.signals));
   if (consentTest) findings.push(...consentTestFindings(consentTest));
+  // Per-vendor timeline. Its verdicts supersede the older all-vendor findings, so the same problem is not scored twice.
+  const consentTimeline = buildConsentTimeline({ hits, postHits, test: consentTest, cmps: consent.cmps || [], t0 });
+  const tlFindings = timelineFindings(consentTimeline);
+  if (tlFindings.some(f => f.id === 'consent-timeline-fail')) {
+    for (let i = findings.length - 1; i >= 0; i--) if (['pixels-fire-after-reject', 'pixels-ignore-consent'].includes(findings[i].id)) findings.splice(i, 1);
+  }
+  if (tlFindings.some(f => f.id === 'consent-timeline-pass')) {
+    for (let i = findings.length - 1; i >= 0; i--) if (findings[i].id === 'pixels-wait-for-consent') findings.splice(i, 1);
+  }
+  findings.push(...tlFindings);
   const hasEcom = allHits.some(h => ['purchase', 'Purchase', 'CompletePayment', 'add_to_cart', 'AddToCart'].includes(h.event));
   if (hasEcom && !findings.some(f => /ecom|purchase|value|currency|content-id|item/.test(f.id) && f.severity !== 'pass')) {
     findings.push(finding('ecommerce-valid', SEVERITY.pass, 'Ecommerce events carry value, currency and items', '', ''));
@@ -340,6 +359,7 @@ export function runChecks({ url, hits = [], probe = null, postHits = [], dlLog =
     platforms,
     consent: { implemented: consent.implemented, signals: consent.signals, cmps: consent.cmps, wasSetLate: consent.wasSetLate },
     consentTest,
+    consentTimeline,
     cookies: cookies ? classifyCookies(cookies) : null,
     counts: {
       critical: findings.filter(f => f.severity === 'critical').length,

@@ -385,3 +385,153 @@ export function validateShopify(hits, probe) {
   }
   return out;
 }
+
+// ---- OpenAI / ChatGPT Ads pixel (docs/research/PLATFORM-SPECS.md §1, checked 2026-10-16) -------------------
+export const OPENAI_STANDARD = new Set(['page_viewed', 'contents_viewed', 'items_added', 'checkout_started', 'order_created', 'lead_created',
+  'registration_completed', 'appointment_scheduled', 'subscription_created', 'trial_started']);
+const OPENAI_CONVERSIONS = new Set(['checkout_started', 'order_created', 'lead_created', 'registration_completed', 'subscription_created', 'trial_started', 'appointment_scheduled']);
+const OPENAI_CUSTOM_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,62}[A-Za-z0-9])?$/;
+// Location fields are sent in clear text by design; everything else in `user` must be SHA-256 (lowercase hex).
+const OPENAI_CLEAR_USER = /^user\.(country|city|region|postal_code|countries|cities|regions|postal_codes)(\.\d+)?$/;
+
+export function validateOpenAI(hits, { pageUrls = [], cookieNames = [] } = {}) {
+  const all = hits.filter(h => h.platform === 'openai' && h.kind === 'hit' && !h.internal);
+  const out = [];
+  if (all.some(h => h.capiInBrowser)) {
+    out.push(f('openai-capi-in-browser', 'critical', 'ChatGPT Ads Conversions API is called from the browser',
+      'A request went to bzr.openai.com/v1/events from page code. That endpoint needs your secret API key, so the key is exposed to every visitor.',
+      'Remove the call from the page and revoke the key in OpenAI Ads. Send server events from your backend only; use the pixel (oaiq) in the browser.', { platform: 'openai' }));
+  }
+  const events = all.filter(h => !h.capiInBrowser);
+  if (!events.length) return out;
+  const issues = [];
+  for (const h of events) {
+    const p = h.params || {};
+    const type = p.type || h.event;
+    if (type === 'custom') {
+      const name = p.custom_event_name;
+      if (!name || !OPENAI_CUSTOM_NAME.test(name) || OPENAI_STANDARD.has(name)) {
+        issues.push(f('openai-custom-name', 'warning', 'ChatGPT Ads custom event has an invalid name',
+          'Custom events need custom_event_name: 1–64 letters, numbers, "_" or "-", starting and ending with a letter or number, and not a standard event name.',
+          'Rename the custom event, or use the matching standard event instead.', { platform: 'openai', event: name || 'custom' }));
+      }
+    } else if (type && !OPENAI_STANDARD.has(type)) {
+      issues.push(f('openai-unknown-event', 'warning', 'ChatGPT Ads event name is not a standard event',
+        'OpenAI accepts the standard events (page_viewed, contents_viewed, items_added, checkout_started, order_created, lead_created, registration_completed, appointment_scheduled, subscription_created, trial_started) or "custom" with a custom_event_name.',
+        'Use a standard event name, or send it as event "custom" with custom_event_name.', { platform: 'openai', event: type }));
+    }
+    const amount = p['data.amount'];
+    if (amount !== undefined && amount !== '') {
+      if (!/^-?\d+$/.test(String(amount))) {
+        issues.push(f('openai-amount-format', 'warning', 'ChatGPT Ads amount is not an integer in minor units',
+          `amount=${String(amount).slice(0, 20)}. OpenAI expects whole numbers in the currency's minor unit (25.99 USD is 2599).`,
+          'Multiply by 100 (or the currency\'s minor-unit factor) and send an integer.', { platform: 'openai', event: type }));
+      }
+      if (!p['data.currency']) {
+        issues.push(f('openai-amount-format', 'warning', 'ChatGPT Ads amount is sent without a currency',
+          'An amount needs an ISO 4217 currency code alongside it.', 'Add data.currency (for example "USD" or "INR").', { platform: 'openai', event: type }));
+      }
+    }
+    if (type === 'order_created' && !p.id) {
+      issues.push(f('openai-no-event-id', 'info', 'ChatGPT Ads purchase has no event ID',
+        'Without an event_id the Conversions API cannot deduplicate this purchase against the pixel, so a server copy would count twice.',
+        'Pass options.event_id in oaiq("measure", …) and send the same value as events[].id from your server.', { platform: 'openai', event: type }));
+    }
+  }
+  out.push(...collapse(issues));
+
+  // Click ID: oppref on the landing URL must be captured by the pixel and carried on conversions.
+  const landed = pageUrls.some(u => { try { return new URL(u).searchParams.has('oppref'); } catch { return false; } });
+  if (landed) {
+    const carried = events.some(h => h.params?.oppref);
+    const cookie = cookieNames.includes('__oppref');
+    const conversions = events.filter(h => OPENAI_CONVERSIONS.has(h.params?.type || h.event));
+    if (carried || cookie) {
+      out.push(f('openai-oppref-captured', 'pass', 'ChatGPT Ads click ID (oppref) is captured', '', ''));
+    } else if (conversions.length || events.length) {
+      out.push(f('openai-oppref-missing', 'warning', 'ChatGPT Ads click ID (oppref) is not captured',
+        'The page URL has oppref, but no OpenAI event carries it and no __oppref cookie was set. Conversions from ChatGPT ads will not be attributed to the click.',
+        'Load the pixel on the landing page before any redirect that drops query parameters, and make sure consent allows it. Your server must also forward the original oppref string unchanged as events[].oppref (the browser cannot see that part).', { platform: 'openai' }));
+    }
+  }
+  return out;
+}
+
+// Raw personal data in OpenAI user fields (pixel init user / CAPI-style fields): everything but location must be hashed.
+export function openAIUnhashedFields(hit) {
+  if (hit.platform !== 'openai') return [];
+  return Object.entries(hit.params || {})
+    .filter(([k, v]) => /^user\./.test(k) && !OPENAI_CLEAR_USER.test(k) && k !== 'user.obref' && v !== '' && v != null && !/^[a-f0-9]{64}$/.test(String(v)))
+    .map(([k]) => k);
+}
+
+// ---- Meta sensitive-data pre-check (PLATFORM-SPECS.md §5) ---------------------------------------------------
+// Words Meta's "prohibited information" categories cover. Matched as whole tokens (split on non-letters), so
+// "therapy" matches but "therapeutic" does not. Domain names are never scanned (core setup keeps the domain).
+const SENSITIVE = {
+  health: ['diabetes', 'diabetic', 'cancer', 'tumour', 'tumor', 'chemotherapy', 'hiv', 'aids', 'stds', 'sti', 'herpes', 'hepatitis', 'asthma', 'arthritis',
+    'alzheimers', 'dementia', 'epilepsy', 'psoriasis', 'eczema', 'acne', 'obesity', 'cholesterol', 'hypertension', 'migraine', 'insomnia', 'thyroid',
+    'covid', 'disease', 'diagnosis', 'symptoms', 'illness', 'injury', 'disability', 'pcos', 'endometriosis', 'menopause', 'incontinence',
+    'kidney', 'cardiac', 'chronic'],
+  'sexual and reproductive health': ['pregnancy', 'pregnant', 'fertility', 'infertility', 'ivf', 'ovulation', 'contraception', 'contraceptive', 'abortion',
+    'erectile', 'viagra', 'cialis', 'libido', 'sexual', 'menstrual', 'period-tracker', 'miscarriage'],
+  'mental health': ['depression', 'anxiety', 'adhd', 'autism', 'bipolar', 'schizophrenia', 'ptsd', 'ocd', 'therapy', 'therapist', 'counselling',
+    'counseling', 'psychiatrist', 'psychologist', 'addiction', 'rehab', 'suicide', 'eating-disorder', 'anorexia', 'bulimia'],
+  'treatments and medication': ['prescription', 'medication', 'medicine', 'pharmacy', 'dosage', 'ozempic', 'wegovy', 'semaglutide', 'insulin',
+    'antidepressant', 'vaccine', 'surgery', 'treatment', 'clinic', 'patient', 'appointment-booked', 'telehealth', 'dental-implant', 'hair-transplant', 'weight-loss', 'weightloss'],
+  financial: ['bankruptcy', 'debt', 'debt-relief', 'loan-approved', 'loan-denied', 'credit-score', 'payday', 'foreclosure', 'overdraft', 'cibil'],
+  identifiers: ['ssn', 'aadhaar', 'pan-card', 'passport-number', 'password', 'otp'],
+};
+const TERM_INDEX = new Map(Object.entries(SENSITIVE).flatMap(([cat, terms]) => terms.map(t => [t, cat])));
+// Multi-word terms are written with "-" and matched against text with spaces/underscores turned into hyphens.
+
+function sensitiveTerms(text) {
+  if (!text) return [];
+  const lower = String(text).toLowerCase();
+  const tokens = new Set(lower.split(/[^a-z0-9]+/).filter(Boolean));
+  const joined = lower.replace(/[_\s+]+/g, '-');
+  const found = [];
+  for (const [term, cat] of TERM_INDEX) {
+    if (term.includes('-') ? joined.includes(term) : tokens.has(term)) found.push({ term, cat });
+  }
+  return found;
+}
+
+// Path, query and fragment of a URL (the domain is excluded).
+function urlTail(u) {
+  try { const x = new URL(u); return decodeURIComponent(`${x.pathname} ${x.search} ${x.hash}`.replace(/\+/g, ' ')); } catch { return ''; }
+}
+
+export function validateMetaSensitive(hits) {
+  const matches = new Map();
+  const add = (where, text) => {
+    for (const { term, cat } of sensitiveTerms(text)) {
+      const k = `${term}|${where}`;
+      if (!matches.has(k)) matches.set(k, { term, cat, where });
+    }
+  };
+  for (const h of hits) {
+    if (h.platform !== 'meta' || h.kind !== 'hit') continue;
+    const p = h.params || {};
+    for (const key of ['dl', 'rl']) {
+      if (!p[key]) continue;
+      const tail = urlTail(p[key]);
+      let utm = '';
+      try { utm = [...new URL(p[key]).searchParams].filter(([k]) => /^utm_/.test(k)).map(([, v]) => v).join(' '); } catch { /* ignore */ }
+      add(utm && sensitiveTerms(utm).length ? `UTM parameters (${key === 'dl' ? 'page URL' : 'referrer'})` : (key === 'dl' ? 'page URL' : 'referrer URL'), utm || tail);
+      if (utm) add(key === 'dl' ? 'page URL' : 'referrer URL', urlTail(p[key].replace(/[?&]utm_[^&#]*/g, '')));
+    }
+    if (p.ev && !META_STANDARD.includes(p.ev)) add('custom event name', p.ev.replace(/([a-z])([A-Z])/g, '$1 $2'));
+    for (const [k, v] of Object.entries(p)) {
+      if (/^cd\[/.test(k) && !/content_ids|value|currency|num_items/.test(k)) add(`custom data (${k})`, `${k.replace(/^cd\[|\]$/g, '')} ${v}`);
+    }
+  }
+  if (!matches.size) return [];
+  const list = [...matches.values()];
+  const terms = [...new Set(list.map(m => `"${m.term}" (${m.cat})`))].slice(0, 8);
+  const places = [...new Set(list.map(m => m.where))];
+  return [f('meta-sensitive-data', 'warning', 'May trigger Meta data restrictions (sensitive terms sent to Meta)',
+    `Meta scans URLs, UTM parameters, custom event names and custom data for health, financial and other sensitive information, and can strip parameters, block events or restrict the dataset. Found ${terms.join(', ')} in: ${places.join(', ')}. This is a pre-check: the browser cannot see whether Meta has already restricted your account.`,
+    'Rename custom events and custom conversions to neutral names (e.g. "QuizCompleted" not "WeightLossQuizCompleted"), keep sensitive words out of URLs and UTMs or strip the path from the pixel\'s page URL, remove the pixel from patient or account pages, and filter parameters server-side if you use the Conversions API. Check Events Manager → Diagnostics for "potentially prohibited information".',
+    { platform: 'meta', sensitive: list.slice(0, 20) })];
+}

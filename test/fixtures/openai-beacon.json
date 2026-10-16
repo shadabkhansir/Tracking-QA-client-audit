@@ -1,0 +1,14 @@
+{
+  "_note": "Shape of a bzr.openai.com/v1/sdk/events beacon body from oaiq.min.js v0.1.41 (docs/research/PLATFORM-SPECS.md §1.2). Values are fictional.",
+  "url": "https://bzr.openai.com/v1/sdk/events?pid=px_test123&st=oaiq-web&sv=0.1.41&t=1760600000000&ec=3",
+  "body": {
+    "obref": "ob_8f2c1d",
+    "oppref": "opp_abc123xyz",
+    "user": { "email_sha256": "973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b", "country": "IN" },
+    "events": [
+      { "type": "page_viewed", "timestamp_ms": 1760600000000, "id": "pv-1", "source_url": "https://shop.example.com/?oppref=opp_abc123xyz", "referrer_url": "", "data": { "type": "contents" } },
+      { "type": "order_created", "timestamp_ms": 1760600001000, "id": "order-1001", "source_url": "https://shop.example.com/thank-you", "data": { "type": "contents", "amount": 259900, "currency": "INR" } },
+      { "type": "oai::diagnostic", "timestamp_ms": 1760600001001, "id": "d-1", "data": { "type": "custom" } }
+    ]
+  }
+}
