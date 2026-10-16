@@ -188,3 +188,4 @@ span.upgrade::after { content: none; }
 .tgf-foot { padding: var(--s-4) var(--s-3) var(--s-5); font-size: 11px; color: var(--ink-soft); text-align: center; }
 .tgf-foot a { color: var(--ink-soft); text-decoration: none; }
 .tgf-foot a:hover { color: var(--brand); text-decoration: underline; }
+.card > .tl-line { flex-wrap: wrap; justify-content: flex-start; gap: 4px 6px; }

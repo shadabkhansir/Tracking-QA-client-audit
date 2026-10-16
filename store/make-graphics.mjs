@@ -5,7 +5,7 @@
 // Serves the extension folder on a fake origin, stubs the chrome.* APIs with sample data (produced by the
 // extension's own detectors and checks, so findings are real), screenshots the side panel, report and
 // options pages, then composes them onto branded canvases:
-//   store/screenshot-N-1280x800.png, store/promo-small-440x280.png, store/marquee-1400x560.png
+//   store/screenshots/screenshot-N-1280x800.png, store/promo-small-440x280.png, store/marquee-1400x560.png
 //
 // Needs Playwright with Chromium. If `playwright` is not resolvable, set PLAYWRIGHT_MODULE to its index.mjs.
 import { readFile, writeFile } from 'node:fs/promises';
@@ -52,6 +52,17 @@ const hits = [
   ...req('https://analytics.tiktok.com/api/v2/pixel', JSON.stringify({ event: 'CompletePayment', event_id: 'ord-58213', context: { pixel: { code: 'C4PX7Q3RN1' }, page: { url: `${SITE}/checkout/thank-you` } }, properties: { value: 119, currency: 'USD', contents: [{ content_id: 'SKU-2041', quantity: 1 }], content_type: 'product' } })),
   ...req('https://px.ads.linkedin.com/wa/?pid=5521873&url=' + encodeURIComponent(`${SITE}/checkout/thank-you`)),
   ...req('https://www.clarity.ms/tag/kq81zt6mvp'),
+  ...req('https://bat.bing.com/action/0?ti=97012345&evt=pageLoad&asc=D'),
+  ...req('https://bzrcdn.openai.com/sdk/oaiq.min.js'),
+  ...req('https://bzr.openai.com/v1/sdk/events?pid=px_7Hq2Lm&st=oaiq-web&sv=0.1.41&ec=1', JSON.stringify({ obref: 'ob_3fa9', oppref: 'opp_c81d2e', events: [{ type: 'order_created', id: 'ord-58213', timestamp_ms: T0 + 900, source_url: `${SITE}/checkout/thank-you`, data: { type: 'contents', amount: 12900, currency: 'USD' } }] })),
+];
+// After the visitor clicks "Reject all": Google keeps cookieless pings (fine); TikTok and ChatGPT Ads keep tracking (not fine).
+const CHOICE_TS = t + 400;
+t = CHOICE_TS + 200;
+const postHits = [
+  ...ga({ en: 'user_engagement' }),
+  ...req('https://analytics.tiktok.com/api/v2/pixel', JSON.stringify({ event: 'Pageview', context: { pixel: { code: 'C4PX7Q3RN1' }, page: { url: `${SITE}/checkout/thank-you` } } })),
+  ...req('https://bzr.openai.com/v1/sdk/events?pid=px_7Hq2Lm&st=oaiq-web&sv=0.1.41&ec=1', JSON.stringify({ events: [{ type: 'page_viewed', id: 'pv-2', timestamp_ms: CHOICE_TS + 300, source_url: `${SITE}/checkout/thank-you`, data: { type: 'contents' } }] })),
 ];
 
 const dl = [
@@ -79,13 +90,21 @@ const probe = {
 };
 
 const consentTest = {
-  attempted: true, mode: 'reject', accepted: true, method: 'OneTrust API', reason: null,
+  attempted: true, mode: 'reject', accepted: true, method: 'OneTrust API', reason: null, tChoice: CHOICE_TS,
   before: { ga4: 2, meta: 2, tiktok: 1, linkedin: 1 }, after: { ga4: 1, meta: 1, tiktok: 1 },
   signalsBefore: null, signalsAfter: null, googlePresent: true, loadedPlatforms: ['ga4', 'meta', 'tiktok', 'linkedin'],
 };
 
 const result = { ...runChecks({ url: probe.url, hits, probe, postHits: [], dlLog: dl, consentTest: null }), injectable: true, session: null };
-const resultWithTest = { ...runChecks({ url: probe.url, hits, probe, postHits: [], dlLog: dl, consentTest }), injectable: true, session: null };
+const resultWithTest = { ...runChecks({ url: probe.url, hits, probe, postHits, dlLog: dl, consentTest, t0: T0 }), injectable: true, session: null };
+// A wellness shop, for the Meta sensitive-data pre-check screenshot.
+const WELL = 'https://wellness.example.com';
+const wellHits = [
+  ...req(`https://www.facebook.com/tr/?${qs({ id: '2233445566778899', ev: 'PageView', dl: `${WELL}/conditions/diabetes-support/starter-kit?utm_campaign=anxiety-relief`, if: 'false', v: '2.9.170' })}`),
+  ...req(`https://www.facebook.com/tr/?${qs({ id: '2233445566778899', ev: 'WeightLossQuizCompleted', dl: `${WELL}/quiz`, 'cd[quiz_result]': 'insomnia', if: 'false', v: '2.9.170' })}`),
+  ...req(`https://region1.google-analytics.com/g/collect?${qs({ v: '2', tid: 'G-W3LL', en: 'page_view', dl: `${WELL}/quiz`, gcs: 'G111', gcd: '13v3v3v2v5l1' })}`),
+];
+const resultWellness = { ...runChecks({ url: `${WELL}/quiz`, hits: wellHits, probe: { ...probe, url: `${WELL}/quiz`, cmps: [], dataLayer: [] } }), injectable: true, session: null };
 const audit = { id: 'demo-1', type: 'page', host: 'shop.example.com', url: probe.url, createdAt: T0 + 5000, result: resultWithTest, preparedFor: 'Example Shop', notes: 'Purchase tracking is close. The critical items below block accurate ROAS in Meta and TikTok; we can fix them in the next GTM release.' };
 
 const storageFixture = {
@@ -244,13 +263,31 @@ const shots = {
   } } }),
   requests: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
     await clickTab('requests')(p);
-    await p.evaluate(() => { const li = [...document.querySelectorAll('#hits li[data-i]')].find(l => /purchase/i.test(l.textContent) && /GA4/.test(l.textContent)); li?.click(); });
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#hits li[data-k]')].find(l => /purchase/i.test(l.textContent) && /GA4/.test(l.textContent)); li?.click(); });
   } } }),
   datalayer: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
     await clickTab('datalayer')(p);
-    await p.evaluate(() => { const li = [...document.querySelectorAll('#dl li[data-i]')].find(l => /purchase/.test(l.textContent)); li?.click(); });
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#dl li[data-k]')].find(l => /purchase/.test(l.textContent)); li?.click(); });
   } } }),
   report: await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1.5 }),
+  timeline: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { result: resultWithTest, run: async p => {
+    await p.selectOption('#opt-consent', 'reject'); await p.click('#run-audit'); await p.waitForSelector('#audit-result:not([hidden])');
+    await p.evaluate(() => document.querySelector('#consent-timeline').scrollIntoView({ block: 'start' }));
+    await p.evaluate(() => window.scrollBy(0, -112));
+  } } }),
+  chatgpt: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
+    await clickTab('requests')(p);
+    await p.evaluate(() => { [...document.querySelectorAll('#chips .chip')].find(c => /ChatGPT/.test(c.textContent))?.click(); });
+    await p.waitForTimeout(200);
+    await p.evaluate(() => { [...document.querySelectorAll('#hits li[data-k]')].find(l => /order_created/.test(l.textContent))?.click(); });
+  } } }),
+  meta: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { result: resultWellness, run: async p => {
+    await p.click('#run-audit'); await p.waitForSelector('#audit-result:not([hidden])');
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#findings li')].find(l => /Meta data restrictions/.test(l.textContent)); li?.scrollIntoView({ block: 'start' }); window.scrollBy(0, -112); });
+  } } }),
+  reportTimeline: await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1.5, setup: { run: async p => {
+    await p.evaluate(() => { const h = [...document.querySelectorAll('h2')].find(x => /Consent timeline/.test(x.textContent)); h?.scrollIntoView({ block: 'start' }); window.scrollBy(0, -80); });
+  } } }),
 };
 // Full report (not used in the store images) so the footer credit can be checked by eye.
 shots.reportFull = await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1, fullPage: true });
@@ -258,16 +295,17 @@ for (const [k, v] of Object.entries(shots)) await writeFile(path.join(here, 'sou
 
 const panelW = 400;
 const screens = [
+  { shot: shots.timeline, shotWidth: panelW, eyebrow: 'Consent timeline', headline: 'See what fires <em>before consent</em>', sub: 'Every vendor, before and after the cookie banner choice, with a pass or fail you can show a client.', bullets: ['Google Consent Mode v2 and Microsoft UET consent signals', 'Meta, TikTok, LinkedIn, ChatGPT Ads and more, by timing', 'Flags tracking after "Reject all"'] },
+  { shot: shots.chatgpt, shotWidth: panelW, eyebrow: 'ChatGPT Ads pixel', headline: 'Check the <em>ChatGPT Ads</em> pixel', sub: 'Decodes OpenAI pixel events, amounts and the oppref click ID, and catches a Conversions API key exposed in page code.', bullets: ['Standard and custom event names', 'Amounts in minor units, currency, event ID', 'Click ID captured for attribution'] },
+  { shot: shots.meta, shotWidth: panelW, eyebrow: 'Meta data restrictions', headline: 'Catch words Meta <em>may block</em>', sub: 'Health and other sensitive terms in URLs, UTMs, custom events and custom data, with the fix, before Meta restricts your events.' },
   { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags plus delivery status', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
-  { shot: shots.consent, shotWidth: panelW, eyebrow: 'Consent stress test', headline: 'Prove consent <em>actually works</em>', sub: 'Click "Accept all" or "Reject all" on the cookie banner and compare what every pixel sent before and after.', bullets: ['OneTrust, Cookiebot, Usercentrics, Didomi, Complianz', 'Flags pixels that fire after "Reject all"', 'Google consent signals before and after'] },
-  { shot: shots.requests, shotWidth: panelW, eyebrow: 'Request inspector', headline: 'Every tracking hit, <em>decoded</em>', sub: 'Readable parameter names, parsed GA4 items and consent strings, with filters, search and CSV/JSON export.' },
   { shot: shots.datalayer, shotWidth: panelW, eyebrow: 'dataLayer timeline', headline: 'Every dataLayer push, <em>in order</em>', sub: 'Captured from the first line of the page, even pushes made before GTM loads. Overwrites are flagged.' },
-  { shot: shots.report, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a <em>client-ready</em> report', sub: 'Executive summary, fixes, consent results and changes since the last audit. Print to PDF or export CSV.' },
+  { shot: shots.reportTimeline, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a <em>client-ready</em> report', sub: 'Executive summary, fixes, the consent timeline by vendor and changes since the last audit. Print to PDF or export CSV.' },
 ];
 
 for (let i = 0; i < screens.length; i++) {
   const s = screens[i];
-  await render(canvasHtml({ ...s, shot: dataUrl(s.shot) }), 1280, 800, `screenshot-${i + 1}-1280x800.png`);
+  await render(canvasHtml({ ...s, shot: dataUrl(s.shot) }), 1280, 800, `screenshots/screenshot-${i + 1}-1280x800.png`);
 }
 
 const icon = dataUrl(await readFile(path.join(root, 'icons/icon128.png')));
