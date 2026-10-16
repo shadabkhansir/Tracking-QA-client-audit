@@ -185,8 +185,10 @@ export function runChecks({ url, hits: rawHits = [], probe = null, postHits: raw
         { platform: 'ga4', tagId: id }));
     }
   }
+  // Events sent after a banner choice count too: a pixel that waits for consent is not silent.
+  const sentAny = p => tagHits.some(h => h.platform === p) || postHits.some(h => h.kind === 'hit' && h.platform === p);
   for (const p of AD_PIXELS) {
-    if (platforms[p] && platforms[p].scripts > 0 && !tagHits.some(h => h.platform === p)) {
+    if (platforms[p] && platforms[p].scripts > 0 && !sentAny(p)) {
       findings.push(finding(`${p}-silent`, SEVERITY.warning, `${PLATFORM_LABELS[p]} loaded but sent no events`,
         'The pixel library loaded but no tracking requests were observed.',
         'Confirm the init and page-view calls run. If the pixel waits for consent, that is correct before consent; run the consent test to confirm it fires after.', { platform: p }));
@@ -194,7 +196,7 @@ export function runChecks({ url, hits: rawHits = [], probe = null, postHits: raw
   }
   // Meta/TikTok objects can exist without a separate library request (inline or cached), so check those too.
   for (const p of ['meta', 'tiktok']) {
-    if (platforms[p] && !platforms[p].scripts && !tagHits.some(h => h.platform === p) && !findings.some(f => f.id === `${p}-silent`)) {
+    if (platforms[p] && !platforms[p].scripts && !sentAny(p) && !findings.some(f => f.id === `${p}-silent`)) {
       findings.push(finding(`${p}-silent`, SEVERITY.warning, `${PLATFORM_LABELS[p]} loaded but sent no events`,
         'The pixel is on the page but no tracking requests were observed.',
         'Confirm the init and page-view calls run. If the pixel waits for consent, run the consent test to confirm it fires after.', { platform: p }));

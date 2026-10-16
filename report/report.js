@@ -34,6 +34,23 @@ function executiveSummary(counts, score, isSite, pageCount) {
   return `We audited ${scope} and found ${parts.join(' and ')}. Overall health: ${grade(score).toLowerCase()} (${score}/100). Fixes are listed in priority order below.`;
 }
 
+// Consent timeline by vendor (what fired before the banner choice and after it).
+const TL_LABEL = {
+  pass: ['pass', '✓ Pass'], before: ['critical', '✕ Fired before consent'], afterReject: ['critical', '✕ Fired after reject'],
+  noSignal: ['warning', '! No consent signal'], updateMissing: ['warning', '! Consent update missing'], cookieless: ['info', 'i Cookieless mode'],
+  noBanner: ['info', 'i No banner'], unknown: ['info', 'i Needs banner test'],
+};
+function timelineHtml(tl) {
+  if (!tl || !tl.vendors?.length) return '';
+  const s = ms => (ms === null || ms === undefined ? '' : `+${(Number(ms) / 1000).toFixed(1)}s`);
+  const choice = tl.mode ? `${tl.mode === 'reject' ? '"Reject all"' : '"Accept all"'} clicked at ${esc(s(tl.choiceMs))}` : 'No banner choice was made during this audit';
+  return `<h2>Consent timeline by vendor</h2>
+    <p class="muted">Page load → ${tl.banner ? `consent banner${tl.cmp ? ` (${esc(tl.cmp)})` : ''}` : 'no consent banner detected'} → ${choice}. Google and Microsoft Ads report consent on each request; other vendors are judged by when they send data relative to the choice.</p>
+    <table><thead><tr><th>Vendor</th><th>Before choice</th><th>After choice</th><th>Verdict</th><th>Why</th></tr></thead><tbody>
+    ${tl.vendors.map(v => { const [cls, txt] = TL_LABEL[v.verdict] || TL_LABEL.unknown; return `<tr><td>${esc(v.label)}</td><td>${esc(v.before)}${v.before && v.firstMs !== null ? ` <span class="muted">(${esc(s(v.firstMs))})</span>` : ''}${v.signalBefore ? `<br><span class="muted">${esc(v.signalBefore)}</span>` : ''}</td><td>${tl.mode ? esc(v.after) : '—'}${v.signalAfter ? `<br><span class="muted">${esc(v.signalAfter)}</span>` : ''}</td><td><span class="sev ${cls}">${txt}</span></td><td class="muted">${esc(v.note)}</td></tr>`; }).join('')}
+    </tbody></table>`;
+}
+
 function consentTable(consent) {
   if (!consent) return '';
   if (!consent.implemented) return '<p><span class="sev critical">Not detected</span>: Google tags run without Consent Mode.</p>';
@@ -183,6 +200,8 @@ async function render() {
 
     <h2>Consent Mode status${isSite ? ' (first page)' : ''}</h2>
     ${consentTable(consent)}
+
+    ${timelineHtml(isSite ? audit.pages.find(p => p.consentTimeline?.mode)?.consentTimeline || audit.pages.find(p => p.consentTimeline?.vendors?.length)?.consentTimeline : audit.result.consentTimeline)}
 
     ${consentTestHtml(isSite ? audit.pages.find(p => p.consentTest)?.consentTest : audit.result.consentTest)}
 

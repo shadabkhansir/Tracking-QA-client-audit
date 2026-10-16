@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "zip": "rm -f dist.zip && zip -r dist.zip manifest.json src sidepanel report options icons -x '*.DS_Store'"
+    "zip": "rm -f dist.zip && zip -r dist.zip manifest.json src sidepanel report options icons -x '*.DS_Store'",
+    "test:e2e": "node test/e2e/advanced.e2e.mjs"
   }
 }

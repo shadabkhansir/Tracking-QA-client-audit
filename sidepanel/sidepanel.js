@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const send = msg => chrome.runtime.sendMessage(msg);
 const SHORT = { ga4: 'GA4', gtm: 'GTM', gads: 'G Ads', google_tag: 'G tag', floodlight: 'Floodlight', meta: 'Meta', tiktok: 'TikTok',
-  linkedin: 'LinkedIn', pinterest: 'Pinterest', snapchat: 'Snap', x: 'X', uet: 'MS Ads', reddit: 'Reddit', clarity: 'Clarity', hotjar: 'Hotjar' };
+  linkedin: 'LinkedIn', pinterest: 'Pinterest', snapchat: 'Snap', x: 'X', uet: 'MS Ads', reddit: 'Reddit', clarity: 'Clarity', hotjar: 'Hotjar', openai: 'ChatGPT Ads' };
 
 let activeTabId = null;
 let lastResult = null;
@@ -186,6 +186,27 @@ function signalClass(v) {
   return v === 'granted' ? 'pass' : v === 'denied' ? 'warning' : 'info';
 }
 
+// Consent timeline card: page load → banner → choice → tags, then one row per vendor with a verdict chip.
+const TL_CHIP = {
+  pass: ['pass', '✓ Pass'], before: ['critical', '✕ Before consent'], afterReject: ['critical', '✕ After reject'],
+  noSignal: ['warning', '! No signal'], updateMissing: ['warning', '! Update missing'], cookieless: ['info', 'i Cookieless'],
+  noBanner: ['info', 'i No banner'], unknown: ['info', 'i Run banner test'],
+};
+const secs = ms => (ms === null || ms === undefined ? '' : `+${(ms / 1000).toFixed(1)}s`);
+function renderTimeline(tl) {
+  const el = $('consent-timeline');
+  el.hidden = !tl || !tl.vendors?.length;
+  if (el.hidden) return;
+  const steps = ['Page load', tl.banner ? `Banner${tl.cmp ? ` (${esc(tl.cmp)})` : ''}` : 'No banner detected',
+    tl.mode ? `${tl.mode === 'reject' ? 'Reject all' : 'Accept all'} ${secs(tl.choiceMs)}` : (tl.banner ? 'No choice yet' : ''), 'Tags'].filter(Boolean);
+  el.innerHTML = `<div><strong>Consent timeline</strong><span class="muted small">${tl.mode ? 'banner test' : 'this page load'}</span></div>
+    <div class="tl-line small">${steps.map(s => `<span>${s}</span>`).join('<span class="tl-arrow" aria-hidden="true">→</span>')}</div>
+    <table class="ct-table tl-table"><thead><tr><th scope="col">Vendor</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Verdict</th></tr></thead><tbody>
+    ${tl.vendors.map(v => { const [cls, txt] = TL_CHIP[v.verdict] || TL_CHIP.unknown; return `<tr title="${esc(v.note)}"><td>${esc(short(v.platform))}</td><td>${v.before}${v.firstMs !== null && v.before ? ` <span class="muted">${secs(v.firstMs)}</span>` : ''}${v.signalBefore ? `<div class="muted tl-sig">${esc(v.signalBefore)}</div>` : ''}</td><td>${tl.mode ? v.after : '—'}${v.signalAfter ? `<div class="muted tl-sig">${esc(v.signalAfter)}</div>` : ''}</td><td><span class="sev ${cls}">${txt}</span></td></tr>`; }).join('')}
+    </tbody></table>
+    ${tl.mode ? '' : `<div class="small muted">${tl.banner ? 'Run the cookie banner test (Reject all) for a full before/after verdict.' : ''}</div>`}`;
+}
+
 // Status is always icon + word + colour (brand GUIDELINES §4), never colour alone.
 const SEV_TAG = { critical: '✕ Critical', warning: '! Warning', info: 'i Note', pass: '✓ Pass' };
 
@@ -204,6 +225,8 @@ function renderResult(r) {
   $('consent').innerHTML = `<div><strong>Consent Mode</strong><span>${c.implemented ? 'Detected' : '<span class="c-critical">Not detected</span>'}</span></div>`
     + (c.implemented ? CONSENT_SIGNALS.filter(s => c.signals[s]).map(s => `<div><span>${esc(s)}</span><span class="c-${signalClass(c.signals[s].effective)}">${esc(c.signals[s].effective)}</span></div>`).join('') : '')
     + `<div><span>CMP</span><span>${esc(c.cmps.join(', ') || 'none detected')}</span></div>`;
+
+  renderTimeline(r.consentTimeline);
 
   const t = r.consentTest;
   $('consent-test').hidden = !t;

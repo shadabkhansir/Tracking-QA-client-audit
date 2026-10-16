@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fixture: consent timeline</title>
+  <script>
+    // A CMP that exposes OneTrust's API, so the extension's banner test can click "Reject all".
+    function choose(choice) {
+      document.getElementById('banner').hidden = true;
+      if (choice === 'reject') {
+        // Misbehaving setup: the ChatGPT Ads pixel still sends after reject (it was never told consent=false).
+        window.oaiq && window.oaiq('measure', 'page_viewed', { type: 'contents' });
+      } else {
+        window.oaiq && window.oaiq('measure', 'page_viewed', { type: 'contents' });
+        new Image().src = 'https://bat.bing.com/action/0?ti=4000000&evt=pageLoad&asc=G';
+      }
+    }
+    window.OneTrust = { RejectAll: () => choose('reject'), AllowAll: () => choose('accept') };
+  </script>
+  <script src="https://bzrcdn.openai.com/sdk/oaiq.min.js"></script>
+</head>
+<body>
+  <h1>Diabetes care starter kit</h1>
+  <div id="banner"><p>We use cookies.</p><button id="onetrust-accept-btn-handler" onclick="choose('accept')">Accept all</button>
+    <button id="onetrust-reject-all-handler" onclick="choose('reject')">Reject all</button></div>
+  <script>
+    // Google tags with Consent Mode default denied (cookieless ping), UET with consent mode denied: both correct.
+    navigator.sendBeacon('https://region1.google-analytics.com/g/collect?v=2&tid=G-E2E1&en=page_view&gcs=G100&gcd=13p3p3p2p5l1&dl=' + encodeURIComponent(location.href));
+    new Image().src = 'https://bat.bing.com/action/0?ti=4000000&evt=pageLoad&asc=D';
+    // Meta fires before any choice, on a page whose URL carries a health term.
+    new Image().src = 'https://www.facebook.com/tr/?id=1234567890&ev=PageView&dl=' + encodeURIComponent(location.origin + '/conditions/diabetes-care?utm_campaign=diabetes');
+  </script>
+</body>
+</html>

@@ -129,7 +129,12 @@ details.menu .menu-items button:hover { background: var(--brand-soft); color: va
 .params { grid-column: 1 / -1; width: 100%; border-collapse: collapse; font-size: 11px; margin: var(--s-2) 0 2px; }
 .params td { padding: 3px 4px; border-top: 1px solid var(--line); vertical-align: top; word-break: break-all; }
 .params td:first-child { color: var(--ink-soft); width: 42%; }
-.params code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; color: var(--ink-soft); display: block; }
+.params .tl-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: var(--s-2) 0; color: var(--ink-soft); }
+.tl-line span:not(.tl-arrow) { background: var(--bg); border: 1px solid var(--line); border-radius: var(--pill); padding: 1px 8px; color: var(--ink); white-space: nowrap; }
+.tl-arrow { color: var(--ink-soft); }
+.tl-table { margin-top: var(--s-1); } .tl-table td { vertical-align: top; padding-top: 5px; padding-bottom: 5px; border-top: 1px solid var(--line); }
+.tl-sig { font-size: 10px; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; color: var(--ink-soft); display: block; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--s-2) 0; }
 .chip { font: 600 12px/1 var(--font); border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); border-radius: var(--pill);
   padding: 6px 10px; cursor: pointer; }

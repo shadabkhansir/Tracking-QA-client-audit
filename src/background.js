@@ -155,12 +155,19 @@ async function onNavigate(tabId, url, ts = Date.now(), requestId = null) {
   broadcast({ type: 'tab-reset', tabId });
 }
 
+// Per-tab navigation resets still in flight (see the main_frame branch below).
+const navPending = new Map();
+
 // Registered synchronously at top level so events wake the worker.
 chrome.webRequest.onBeforeRequest.addListener(
   details => {
     if (details.tabId < 0) return;
     if (details.type === 'main_frame') {
-      restore().then(() => onNavigate(details.tabId, details.url, details.timeStamp, details.requestId));
+      // onNavigate resets the tab log after an async settings read; requests from the new page must wait for it,
+      // or hits fired in the first milliseconds land in the old log and are wiped by the reset.
+      const pending = restore().then(() => onNavigate(details.tabId, details.url, details.timeStamp, details.requestId));
+      navPending.set(details.tabId, pending);
+      pending.finally(() => { if (navPending.get(details.tabId) === pending) navPending.delete(details.tabId); });
       return;
     }
     const body = decodeBody(details.requestBody);
@@ -179,7 +186,7 @@ chrome.webRequest.onBeforeRequest.addListener(
 function record(details, body, found) {
     starts.set(details.requestId, details.timeStamp);
     trimMap(starts);
-    restore().then(() => {
+    Promise.all([restore(), navPending.get(details.tabId)]).then(() => {
       if (!tabs.has(details.tabId)) tabs.set(details.tabId, newState(details.initiator || ''));
       const state = tabs.get(details.tabId);
       // Redirect hops reuse the requestId; count the request once.
