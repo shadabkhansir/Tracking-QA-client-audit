@@ -21,7 +21,7 @@ _Checked 2026-10-14 against public Chrome Web Store listings and vendor docs. No
 
 ## Gaps nobody fills, and what we built for each
 
-| Gap | Tracking QA feature |
+| Gap | Pixel & Tag Checker feature |
 |---|---|
 | Vendor rules live in separate single-vendor helpers | One rules engine covering GA4, Meta, TikTok plus LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit (`src/validators.js`) |
 | No cross-vendor consistency checks | Purchase value/currency compared across GA4, Meta and TikTok; event_id checks for CAPI/Events API dedup |

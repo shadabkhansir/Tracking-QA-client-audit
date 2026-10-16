@@ -5,7 +5,7 @@
 // Serves the extension folder on a fake origin, stubs the chrome.* APIs with sample data (produced by the
 // extension's own detectors and checks, so findings are real), screenshots the side panel, report and
 // options pages, then composes them onto branded canvases:
-//   store/screenshot-N-1280x800.png, store/promo-small-440x280.png, store/marquee-1400x560.png
+//   store/screenshots/screenshot-N-1280x800.png, store/promo-small-440x280.png, store/marquee-1400x560.png
 //
 // Needs Playwright with Chromium. If `playwright` is not resolvable, set PLAYWRIGHT_MODULE to its index.mjs.
 import { readFile, writeFile } from 'node:fs/promises';
@@ -52,6 +52,17 @@ const hits = [
   ...req('https://analytics.tiktok.com/api/v2/pixel', JSON.stringify({ event: 'CompletePayment', event_id: 'ord-58213', context: { pixel: { code: 'C4PX7Q3RN1' }, page: { url: `${SITE}/checkout/thank-you` } }, properties: { value: 119, currency: 'USD', contents: [{ content_id: 'SKU-2041', quantity: 1 }], content_type: 'product' } })),
   ...req('https://px.ads.linkedin.com/wa/?pid=5521873&url=' + encodeURIComponent(`${SITE}/checkout/thank-you`)),
   ...req('https://www.clarity.ms/tag/kq81zt6mvp'),
+  ...req('https://bat.bing.com/action/0?ti=97012345&evt=pageLoad&asc=D'),
+  ...req('https://bzrcdn.openai.com/sdk/oaiq.min.js'),
+  ...req('https://bzr.openai.com/v1/sdk/events?pid=px_7Hq2Lm&st=oaiq-web&sv=0.1.41&ec=1', JSON.stringify({ obref: 'ob_3fa9', oppref: 'opp_c81d2e', events: [{ type: 'order_created', id: 'ord-58213', timestamp_ms: T0 + 900, source_url: `${SITE}/checkout/thank-you`, data: { type: 'contents', amount: 12900, currency: 'USD' } }] })),
+];
+// After the visitor clicks "Reject all": Google keeps cookieless pings (fine); TikTok and ChatGPT Ads keep tracking (not fine).
+const CHOICE_TS = t + 400;
+t = CHOICE_TS + 200;
+const postHits = [
+  ...ga({ en: 'user_engagement' }),
+  ...req('https://analytics.tiktok.com/api/v2/pixel', JSON.stringify({ event: 'Pageview', context: { pixel: { code: 'C4PX7Q3RN1' }, page: { url: `${SITE}/checkout/thank-you` } } })),
+  ...req('https://bzr.openai.com/v1/sdk/events?pid=px_7Hq2Lm&st=oaiq-web&sv=0.1.41&ec=1', JSON.stringify({ events: [{ type: 'page_viewed', id: 'pv-2', timestamp_ms: CHOICE_TS + 300, source_url: `${SITE}/checkout/thank-you`, data: { type: 'contents' } }] })),
 ];
 
 const dl = [
@@ -79,17 +90,25 @@ const probe = {
 };
 
 const consentTest = {
-  attempted: true, mode: 'reject', accepted: true, method: 'OneTrust API', reason: null,
+  attempted: true, mode: 'reject', accepted: true, method: 'OneTrust API', reason: null, tChoice: CHOICE_TS,
   before: { ga4: 2, meta: 2, tiktok: 1, linkedin: 1 }, after: { ga4: 1, meta: 1, tiktok: 1 },
   signalsBefore: null, signalsAfter: null, googlePresent: true, loadedPlatforms: ['ga4', 'meta', 'tiktok', 'linkedin'],
 };
 
 const result = { ...runChecks({ url: probe.url, hits, probe, postHits: [], dlLog: dl, consentTest: null }), injectable: true, session: null };
-const resultWithTest = { ...runChecks({ url: probe.url, hits, probe, postHits: [], dlLog: dl, consentTest }), injectable: true, session: null };
+const resultWithTest = { ...runChecks({ url: probe.url, hits, probe, postHits, dlLog: dl, consentTest, t0: T0 }), injectable: true, session: null };
+// A wellness shop, for the Meta sensitive-data pre-check screenshot.
+const WELL = 'https://wellness.example.com';
+const wellHits = [
+  ...req(`https://www.facebook.com/tr/?${qs({ id: '2233445566778899', ev: 'PageView', dl: `${WELL}/conditions/diabetes-support/starter-kit?utm_campaign=anxiety-relief`, if: 'false', v: '2.9.170' })}`),
+  ...req(`https://www.facebook.com/tr/?${qs({ id: '2233445566778899', ev: 'WeightLossQuizCompleted', dl: `${WELL}/quiz`, 'cd[quiz_result]': 'insomnia', if: 'false', v: '2.9.170' })}`),
+  ...req(`https://region1.google-analytics.com/g/collect?${qs({ v: '2', tid: 'G-W3LL', en: 'page_view', dl: `${WELL}/quiz`, gcs: 'G111', gcd: '13v3v3v2v5l1' })}`),
+];
+const resultWellness = { ...runChecks({ url: `${WELL}/quiz`, hits: wellHits, probe: { ...probe, url: `${WELL}/quiz`, cmps: [], dataLayer: [] } }), injectable: true, session: null };
 const audit = { id: 'demo-1', type: 'page', host: 'shop.example.com', url: probe.url, createdAt: T0 + 5000, result: resultWithTest, preparedFor: 'Example Shop', notes: 'Purchase tracking is close. The critical items below block accurate ROAS in Meta and TikTok; we can fix them in the next GTM release.' };
 
 const storageFixture = {
-  plan: 'pro',
+  plan: 'free', // store screenshots must show what store users get (Pro is not purchasable yet)
   settings: { preserveLog: false, showCredit: true },
   brand: { agencyName: 'Northwind Analytics', brandColor: '#1f6b4f', logoDataUrl: '', contact: 'hello@northwind.example · northwind.example', preparedFor: 'Example Shop', ctaText: 'Book a 15-min fix call', ctaUrl: 'https://example.com/book' },
   audits: [audit, { ...audit, id: 'demo-0', createdAt: T0 - 7 * 864e5, result }],
@@ -123,35 +142,42 @@ function chromeStub({ storage, tabState, auditResult, tabUrl }) {
 }
 
 // ---- Composition --------------------------------------------------------------------------
-const C = { green: '#1f6b4f', ink: '#16181d', paper: '#fbfaf7', accent: '#f2a541' };
-const FONT = "Inter, 'Segoe UI', system-ui, -apple-system, sans-serif";
+// Values from src/brand/tokens.css (The Growth Folks® design system).
+const C = { green: '#1f6b4f', ink: '#16181d', inkSoft: '#4a4f5a', paper: '#fbfaf7', line: '#e6e3dc', white: '#ffffff' };
+const FONT = "Inter, 'Inter Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif";
+// The bundled Inter files, inlined so the canvases render with the brand font (setContent pages can't fetch cross-origin fonts).
+const FONT_FACES = (await Promise.all([400, 600, 800].map(async w => {
+  const b64 = (await readFile(path.join(root, `src/brand/fonts/inter-${w}.woff2`))).toString('base64');
+  return `@font-face { font-family: 'Inter'; font-weight: ${w}; src: url(data:font/woff2;base64,${b64}) format('woff2'); }`;
+}))).join('\n');
 const dataUrl = buf => `data:image/png;base64,${buf.toString('base64')}`;
 
-const mark = (size = 15, color = C.ink) => `<div style="font:600 ${size}px/1.2 ${FONT};color:${color};letter-spacing:-.01em">
-  <span style="display:inline-block;width:${size * 0.62}px;height:${size * 0.62}px;border-radius:50%;background:${C.accent};margin-right:8px;vertical-align:1px"></span>The Growth Folks®</div>`;
+// TGF logo lock-up: green rounded square (radius ≈ 28%) with white "TGF", then the word mark. Inverted on green.
+const mark = (size = 15, inverted = false) => `<div style="display:flex;align-items:center;gap:${Math.round(size * 0.6)}px;font:800 ${size}px/1 ${FONT};color:${inverted ? C.white : C.ink};letter-spacing:-.01em">
+  <span style="display:inline-grid;place-items:center;width:${Math.round(size * 2)}px;height:${Math.round(size * 2)}px;border-radius:${Math.round(size * 0.56)}px;background:${inverted ? C.white : C.green};color:${inverted ? C.green : C.white};font-size:${Math.round(size * 0.68)}px">TGF</span>The Growth Folks®</div>`;
 
 function canvasHtml({ eyebrow, headline, sub, shot, shotWidth, bullets = [] }) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
+    ${FONT_FACES}
     * { box-sizing: border-box; margin: 0; }
     body { width: 1280px; height: 800px; overflow: hidden; background: ${C.paper}; font-family: ${FONT}; color: ${C.ink}; position: relative; }
     .band { position: absolute; right: 0; top: 0; bottom: 0; width: 560px; background: ${C.green}; }
-    .dots { position: absolute; right: 0; top: 0; bottom: 0; width: 560px; background-image: radial-gradient(rgba(255,255,255,.09) 1.5px, transparent 1.5px); background-size: 22px 22px; }
     .copy { position: absolute; left: 72px; top: 0; bottom: 0; width: ${Math.min(540, 1280 - 70 - shotWidth - 72 - 56)}px; display: flex; flex-direction: column; justify-content: center; }
-    .eyebrow { font-size: 15px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: ${C.green}; margin-bottom: 18px; }
-    h1 { font-size: ${shotWidth > 500 ? 44 : 50}px; line-height: 1.06; letter-spacing: -.025em; font-weight: 750; }
+    .eyebrow { font-size: 15px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: ${C.green}; margin-bottom: 18px; }
+    h1 { font-size: ${shotWidth > 500 ? 44 : 50}px; line-height: 1.06; letter-spacing: -.02em; font-weight: 800; }
     h1 em { font-style: normal; color: ${C.green}; }
-    .sub { font-size: 20px; line-height: 1.5; color: #4a4f59; margin-top: 22px; }
+    .sub { font-size: 20px; line-height: 1.5; color: ${C.inkSoft}; margin-top: 22px; }
     ul { list-style: none; padding: 0; margin-top: 26px; }
-    li { font-size: 17px; line-height: 1.4; margin: 10px 0; padding-left: 30px; position: relative; color: #2b2f36; }
-    li::before { content: ''; position: absolute; left: 0; top: 6px; width: 14px; height: 14px; border-radius: 4px; background: ${C.accent}; }
+    li { font-size: 17px; line-height: 1.4; margin: 10px 0; padding-left: 30px; position: relative; color: ${C.ink}; }
+    li::before { content: '✓'; position: absolute; left: 0; top: 0; color: ${C.green}; font-weight: 800; }
     .foot { position: absolute; left: 72px; bottom: 44px; }
     .shot { position: absolute; top: 50%; right: 70px; transform: translateY(-50%); width: ${shotWidth}px; border-radius: 14px; overflow: hidden;
       box-shadow: 0 30px 70px rgba(10,30,22,.35), 0 0 0 1px rgba(0,0,0,.08); background: #fff; }
     .shot img { display: block; width: 100%; }
-    .shot .bar { height: 30px; background: #eef0f2; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-bottom: 1px solid #e1e4e8; }
-    .shot .bar i { width: 10px; height: 10px; border-radius: 50%; background: #cfd3d8; display: block; }
+    .shot .bar { height: 30px; background: ${C.paper}; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-bottom: 1px solid ${C.line}; }
+    .shot .bar i { width: 10px; height: 10px; border-radius: 50%; background: ${C.line}; display: block; }
   </style></head><body>
-    <div class="band"></div><div class="dots"></div>
+    <div class="band"></div>
     <div class="copy">
       <div class="eyebrow">${eyebrow}</div>
       <h1>${headline}</h1>
@@ -166,24 +192,23 @@ function canvasHtml({ eyebrow, headline, sub, shot, shotWidth, bullets = [] }) {
 function promoHtml({ w, h, big }) {
   const s = big ? 1 : 0.42;
   return `<!doctype html><html><head><meta charset="utf-8"><style>
+    ${FONT_FACES}
     * { box-sizing: border-box; margin: 0; }
     body { width: ${w}px; height: ${h}px; overflow: hidden; background: ${C.green}; font-family: ${FONT}; color: #fff; position: relative; }
-    .dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.08) ${2 * s + 0.6}px, transparent ${2 * s + 0.6}px); background-size: ${Math.round(26 * s + 8)}px ${Math.round(26 * s + 8)}px; }
     .wrap { position: absolute; left: ${Math.round(80 * s + 14)}px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; width: ${big ? 720 : 300}px; }
-    .icon { width: ${Math.round(84 * s + 18)}px; height: ${Math.round(84 * s + 18)}px; border-radius: ${Math.round(18 * s + 5)}px; background: #fff; display: grid; place-items: center; margin-bottom: ${Math.round(26 * s + 6)}px; }
+    .icon { width: ${Math.round(84 * s + 18)}px; height: ${Math.round(84 * s + 18)}px; border-radius: ${Math.round(18 * s + 5)}px; background: ${C.white}; display: grid; place-items: center; margin-bottom: ${Math.round(26 * s + 6)}px; }
     .icon img { width: 72%; }
-    h1 { font-size: ${big ? 64 : 30}px; line-height: 1.04; letter-spacing: -.025em; font-weight: 760; }
+    h1 { font-size: ${big ? 64 : 30}px; line-height: 1.04; letter-spacing: -.02em; font-weight: 800; }
     p { font-size: ${big ? 24 : 13}px; line-height: 1.4; margin-top: ${big ? 18 : 8}px; color: rgba(255,255,255,.86); }
     .by { margin-top: ${big ? 30 : 14}px; font-size: ${big ? 18 : 11}px; font-weight: 600; color: #fff; }
-    .by i { display: inline-block; width: ${big ? 11 : 7}px; height: ${big ? 11 : 7}px; border-radius: 50%; background: ${C.accent}; margin-right: 7px; }
     .card { position: absolute; right: 70px; top: 50%; transform: translateY(-50%) rotate(-2deg); width: 470px; border-radius: 14px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.35); background: #fff; }
     .card img { display: block; width: 100%; }
-  </style></head><body><div class="dots"></div>
+  </style></head><body>
     <div class="wrap">
       <div class="icon"><img src="ICON"></div>
-      <h1>Tracking QA &amp;<br>Client Audit</h1>
+      <h1>Pixel &amp;<br>Tag Checker</h1>
       <p>${big ? 'Audit GA4, GTM, Meta, TikTok and Consent Mode v2 in one click, then send a branded client report.' : 'Tag &amp; Consent Mode audits with branded client reports.'}</p>
-      <div class="by"><i></i>by The Growth Folks®</div>
+      <div class="by">${mark(big ? 18 : 10, true)}</div>
     </div>
     ${big ? '<div class="card"><img src="SHOT"></div>' : ''}
   </body></html>`;
@@ -238,13 +263,31 @@ const shots = {
   } } }),
   requests: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
     await clickTab('requests')(p);
-    await p.evaluate(() => { const li = [...document.querySelectorAll('#hits li[data-i]')].find(l => /purchase/i.test(l.textContent) && /GA4/.test(l.textContent)); li?.click(); });
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#hits li[data-k]')].find(l => /purchase/i.test(l.textContent) && /GA4/.test(l.textContent)); li?.click(); });
   } } }),
   datalayer: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
     await clickTab('datalayer')(p);
-    await p.evaluate(() => { const li = [...document.querySelectorAll('#dl li[data-i]')].find(l => /purchase/.test(l.textContent)); li?.click(); });
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#dl li[data-k]')].find(l => /purchase/.test(l.textContent)); li?.click(); });
   } } }),
   report: await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1.5 }),
+  timeline: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { result: resultWithTest, run: async p => {
+    await p.selectOption('#opt-consent', 'reject'); await p.click('#run-audit'); await p.waitForSelector('#audit-result:not([hidden])');
+    await p.evaluate(() => document.querySelector('#consent-timeline').scrollIntoView({ block: 'start' }));
+    await p.evaluate(() => window.scrollBy(0, -112));
+  } } }),
+  chatgpt: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { run: async p => {
+    await clickTab('requests')(p);
+    await p.evaluate(() => { [...document.querySelectorAll('#chips .chip')].find(c => /ChatGPT/.test(c.textContent))?.click(); });
+    await p.waitForTimeout(200);
+    await p.evaluate(() => { [...document.querySelectorAll('#hits li[data-k]')].find(l => /order_created/.test(l.textContent))?.click(); });
+  } } }),
+  meta: await capture('sidepanel/sidepanel.html', { ...PANEL, setup: { result: resultWellness, run: async p => {
+    await p.click('#run-audit'); await p.waitForSelector('#audit-result:not([hidden])');
+    await p.evaluate(() => { const li = [...document.querySelectorAll('#findings li')].find(l => /Meta data restrictions/.test(l.textContent)); li?.scrollIntoView({ block: 'start' }); window.scrollBy(0, -112); });
+  } } }),
+  reportTimeline: await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1.5, setup: { run: async p => {
+    await p.evaluate(() => { const h = [...document.querySelectorAll('h2')].find(x => /Consent timeline/.test(x.textContent)); h?.scrollIntoView({ block: 'start' }); window.scrollBy(0, -80); });
+  } } }),
 };
 // Full report (not used in the store images) so the footer credit can be checked by eye.
 shots.reportFull = await capture('report/report.html?id=demo-1', { width: 900, height: 1000, scale: 1, fullPage: true });
@@ -252,16 +295,17 @@ for (const [k, v] of Object.entries(shots)) await writeFile(path.join(here, 'sou
 
 const panelW = 400;
 const screens = [
-  { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
-  { shot: shots.consent, shotWidth: panelW, eyebrow: 'Consent stress test', headline: 'Prove consent <em>actually works</em>', sub: 'Click "Accept all" or "Reject all" on the cookie banner and compare what every pixel sent before and after.', bullets: ['OneTrust, Cookiebot, Usercentrics, Didomi, Complianz', 'Flags pixels that fire after "Reject all"', 'Google consent signals before and after'] },
-  { shot: shots.requests, shotWidth: panelW, eyebrow: 'Request inspector', headline: 'Every tracking hit, <em>decoded</em>', sub: 'Readable parameter names, parsed GA4 items and consent strings, with filters, search and CSV/JSON export.' },
+  { shot: shots.timeline, shotWidth: panelW, eyebrow: 'Consent timeline', headline: 'See what fires <em>before consent</em>', sub: 'Every vendor, before and after the cookie banner choice, with a pass or fail you can show a client.', bullets: ['Google Consent Mode v2 and Microsoft UET consent signals', 'Meta, TikTok, LinkedIn, ChatGPT Ads and more, by timing', 'Flags tracking after "Reject all"'] },
+  { shot: shots.chatgpt, shotWidth: panelW, eyebrow: 'ChatGPT Ads pixel', headline: 'Check the <em>ChatGPT Ads</em> pixel', sub: 'Decodes OpenAI pixel events, amounts and the oppref click ID, and catches a Conversions API key exposed in page code.', bullets: ['Standard and custom event names', 'Amounts in minor units, currency, event ID', 'Click ID captured for attribution'] },
+  { shot: shots.meta, shotWidth: panelW, eyebrow: 'Meta data restrictions', headline: 'Catch words Meta <em>may block</em>', sub: 'Health and other sensitive terms in URLs, UTMs, custom events and custom data, with the fix, before Meta restricts your events.' },
+  { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags plus delivery status', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
+  { shot: shots.reportTimeline, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a <em>client-ready</em> report', sub: 'Executive summary, fixes, the consent timeline by vendor and changes since the last audit. Print to PDF or export CSV.' },
   { shot: shots.datalayer, shotWidth: panelW, eyebrow: 'dataLayer timeline', headline: 'Every dataLayer push, <em>in order</em>', sub: 'Captured from the first line of the page, even pushes made before GTM loads. Overwrites are flagged.' },
-  { shot: shots.report, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a report with <em>your</em> brand on it', sub: 'Executive summary, fixes, consent results and changes since the last audit. Print to PDF or export CSV.' },
 ];
 
 for (let i = 0; i < screens.length; i++) {
   const s = screens[i];
-  await render(canvasHtml({ ...s, shot: dataUrl(s.shot) }), 1280, 800, `screenshot-${i + 1}-1280x800.png`);
+  await render(canvasHtml({ ...s, shot: dataUrl(s.shot) }), 1280, 800, `screenshots/screenshot-${i + 1}-1280x800.png`);
 }
 
 const icon = dataUrl(await readFile(path.join(root, 'icons/icon128.png')));

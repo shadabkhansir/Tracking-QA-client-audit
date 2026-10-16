@@ -1,0 +1,12 @@
+{
+  "_note": "Misconfigured ChatGPT Ads events: unknown name, invalid custom name, missing currency, raw email in user fields.",
+  "url": "https://bzr.openai.com/v1/sdk/events?pid=px_test123&st=oaiq-web&sv=0.1.41&ec=3",
+  "body": {
+    "user": { "email_sha256": "jane@example.com" },
+    "events": [
+      { "type": "purchase", "id": "x1", "data": { "type": "contents", "amount": 1000, "currency": "USD" } },
+      { "type": "custom", "custom_event_name": "order_created", "id": "x2", "data": { "type": "custom" } },
+      { "type": "order_created", "data": { "type": "contents", "amount": 500 } }
+    ]
+  }
+}

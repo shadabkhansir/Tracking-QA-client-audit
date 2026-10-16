@@ -11,16 +11,18 @@ export function findPrevious(audits, audit) {
 
 // Compares two finding lists (previous audit vs current) for "what changed" sections and monitoring alerts.
 const key = f => `${f.id}|${f.title}`;
+// Same rule on a different tag (pixel A fixed, pixel B now broken) is a change, not "unchanged".
+const ruleKey = f => `${f.id}|${f.platform || ''}|${f.tagId || ''}`;
 
 export function diffFindings(previous = [], current = []) {
   const prev = new Map(previous.filter(f => f.severity !== 'pass').map(f => [key(f), f]));
   const curr = new Map(current.filter(f => f.severity !== 'pass').map(f => [key(f), f]));
   // Same rule id with a different title (e.g. a count changed) counts as unchanged, not resolved + added.
-  const prevIds = new Set([...prev.values()].map(f => f.id));
-  const currIds = new Set([...curr.values()].map(f => f.id));
+  const prevIds = new Set([...prev.values()].map(ruleKey));
+  const currIds = new Set([...curr.values()].map(ruleKey));
   return {
-    added: [...curr.values()].filter(f => !prev.has(key(f)) && !prevIds.has(f.id)),
-    resolved: [...prev.values()].filter(f => !curr.has(key(f)) && !currIds.has(f.id)),
-    unchanged: [...curr.values()].filter(f => prev.has(key(f)) || prevIds.has(f.id)),
+    added: [...curr.values()].filter(f => !prev.has(key(f)) && !prevIds.has(ruleKey(f))),
+    resolved: [...prev.values()].filter(f => !curr.has(key(f)) && !currIds.has(ruleKey(f))),
+    unchanged: [...curr.values()].filter(f => prev.has(key(f)) || prevIds.has(ruleKey(f))),
   };
 }

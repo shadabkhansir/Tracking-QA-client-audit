@@ -1,18 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "Tracking QA & Client Audit by The Growth Folks®",
-  "short_name": "Tracking QA",
-  "version": "0.3.0",
-  "description": "Audit GA4, GTM, Meta, TikTok and 10 more tags plus Consent Mode v2, then send clients a branded report. By The Growth Folks®",
-  "homepage_url": "https://thegrowthfolks.com/tools/tracking-qa",
+  "name": "Pixel & Tag Checker: GA4, GTM, Meta Audit \u2013 The Growth Folks\u00ae",
+  "short_name": "Tag Checker",
+  "version": "1.1.0",
+  "description": "Check GA4, GTM, Meta, TikTok and ChatGPT Ads pixels, see what fires before consent, and send clients a polished audit report.",
+  "homepage_url": "https://thegrowthfolks.com/tools/tag-checker/",
   "minimum_chrome_version": "116",
   "permissions": [
     "sidePanel",
     "storage",
     "scripting",
     "webRequest",
-    "alarms",
-    "notifications"
+    "cookies",
+    "declarativeNetRequestWithHostAccess",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -26,7 +27,7 @@
   },
   "options_page": "options/options.html",
   "action": {
-    "default_title": "Open Tracking QA",
+    "default_title": "Open Pixel & Tag Checker",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -41,7 +42,9 @@
     "128": "icons/icon128.png"
   },
   "optional_permissions": [
-    "browsingData"
+    "browsingData",
+    "alarms",
+    "notifications"
   ],
   "content_scripts": [
     {
@@ -66,6 +69,33 @@
       ],
       "run_at": "document_start",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*/wpm@*",
+        "https://*/web-pixels@*",
+        "http://*/wpm@*",
+        "http://*/web-pixels@*"
+      ],
+      "js": [
+        "src/content/dl-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/wpm@*",
+        "https://*/web-pixels@*",
+        "http://*/wpm@*",
+        "http://*/web-pixels@*"
+      ],
+      "js": [
+        "src/content/relay.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
     }
   ]
 }

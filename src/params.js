@@ -21,6 +21,13 @@ const TIKTOK_LABELS = {
   'properties.content_id': 'Content ID', 'properties.content_type': 'Content type',
 };
 
+const OPENAI_LABELS = {
+  pid: 'Pixel ID', type: 'Event', id: 'Event ID (dedup)', event_id: 'Event ID (dedup)', custom_event_name: 'Custom event name',
+  oppref: 'Click ID (oppref)', obref: 'Browser ID (obref)', source_url: 'Page URL', referrer_url: 'Referrer',
+  timestamp_ms: 'Event time', 'data.type': 'Data type', 'data.amount': 'Amount (minor units)', 'data.currency': 'Currency',
+  'data.plan_id': 'Plan ID', sv: 'SDK version', st: 'SDK type', ec: 'Events in batch', opt_out: 'Personalisation opt-out',
+};
+
 export function labelFor(platform, key) {
   if (platform === 'ga4') {
     if (GA4_LABELS[key]) return GA4_LABELS[key];
@@ -38,6 +45,11 @@ export function labelFor(platform, key) {
     if (ud) return `Advanced matching: ${ud[1]}`;
   }
   if (platform === 'tiktok' && TIKTOK_LABELS[key]) return TIKTOK_LABELS[key];
+  if (platform === 'openai') {
+    if (OPENAI_LABELS[key]) return OPENAI_LABELS[key];
+    if (key.startsWith('user.')) return `User match field: ${key.slice(5)}`;
+    if (key.startsWith('data.')) return `Data: ${key.slice(5)}`;
+  }
   return key;
 }
 
@@ -100,7 +112,7 @@ export function ecommerceOf(hit) {
       value: num(p['cd[value]']),
       currency: p['cd[currency]'],
       eventId: p.eid,
-      contentIds: Array.isArray(parsedIds) ? parsedIds : ids ? [ids] : Array.isArray(contents) ? contents.map(c => c.id) : [],
+      contentIds: Array.isArray(parsedIds) ? parsedIds : ids ? [ids] : Array.isArray(contents) ? contents.map(c => c?.id).filter(Boolean) : [],
       contentType: p['cd[content_type]'],
     };
   }

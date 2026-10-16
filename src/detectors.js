@@ -2,6 +2,9 @@
 // Pure functions: no chrome.* APIs, so they run under `node --test`.
 
 const GOOGLE_ID = /^(G|GTM|AW|GT|DC)-[A-Z0-9]+$/i;
+// Vendor-owned hosts. The same payloads on any other host mean a first-party proxy (server-side GTM, Google Tag Gateway, pixel proxies).
+const GOOGLE_HOSTS = /(^|\.)(google-analytics\.com|analytics\.google\.com|googletagmanager\.com|google\.com|googleadservices\.com|doubleclick\.net)$/;
+const isFirstParty = (host, vendorRe) => !vendorRe.test(host);
 
 // gcs = "G1" + ad_storage + analytics_storage, each 1 (granted) / 0 (denied) / - (not set).
 export function parseGcs(gcs) {
@@ -87,21 +90,28 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
       const params = { ...qs, ...Object.fromEntries(new URLSearchParams(line)) };
       return {
         platform: 'ga4', kind: 'hit', id: params.tid, event: params.en || null, params,
-        consent: parseGoogleConsent(params), url, serverSide: !/google-analytics\.com$|analytics\.google\.com$/.test(host),
+        consent: parseGoogleConsent(params), url, serverSide: isFirstParty(host, GOOGLE_HOSTS), firstParty: isFirstParty(host, GOOGLE_HOSTS), userData: parseUserData(params.em),
       };
     });
   }
 
   // GTM container / gtag.js library loads (Google CDN or first-party sGTM).
-  if (/\/gtm\.js$/.test(path) && /^GTM-/i.test(qs.id || '')) return [scriptHit('gtm', qs.id, url)];
+  if (/\/gtm\.js$/.test(path) && /^GTM-/i.test(qs.id || '')) return [scriptHit('gtm', qs.id, url, { firstParty: isFirstParty(host, GOOGLE_HOSTS) })];
   if (/\/gtag\/js$/.test(path) && GOOGLE_ID.test(qs.id || '')) {
-    return [scriptHit(googleIdPlatform(qs.id), qs.id, url, { loader: 'gtag.js' })];
+    return [scriptHit(googleIdPlatform(qs.id), qs.id, url, { loader: 'gtag.js', firstParty: isFirstParty(host, GOOGLE_HOSTS) })];
   }
 
   // Google Ads conversion / remarketing pings carry gcs/gcd too.
   const ads = path.match(/\/pagead\/(?:viewthrough)?conversion\/(\d+)/);
-  if (ads && /googleadservices\.com$|doubleclick\.net$|google\.com$/.test(host)) {
-    return [{ platform: 'gads', kind: 'hit', id: `AW-${ads[1]}`, event: qs.label ? 'conversion' : 'remarketing', params: qs, consent: parseGoogleConsent(qs), url }];
+  if (ads && /(^|\.)(googleadservices\.com|doubleclick\.net|google\.com)$/.test(host)) {
+    const params = { ...qs, ...formOrJson(body) };
+    return [{ platform: 'gads', kind: 'hit', id: `AW-${ads[1]}`, event: params.label ? 'conversion' : 'remarketing', params, consent: parseGoogleConsent(params), url, userData: parseUserData(params.em) }];
+  }
+
+  // Google Ads conversion modelling / consent pings (www.google.com/ccm/collect).
+  if (/\/ccm\/collect$/.test(path) && /(^|\.)google\.[a-z.]+$/.test(host)) {
+    const params = { ...qs, ...formOrJson(body) };
+    return [{ platform: 'gads', kind: 'hit', id: params.tid || null, event: params.en || 'ccm', params, consent: parseGoogleConsent(params), url }];
   }
 
   // Meta Pixel.
@@ -111,29 +121,74 @@ export function classifyRequest({ url, method = 'GET', body = '' }) {
     if (cfg) return [scriptHit('meta', cfg[1], url, { loader: 'config' })];
     return [];
   }
-  if (/(^|\.)facebook\.com$/.test(host) && /^\/tr\/?$/.test(path)) {
+  const metaHost = /(^|\.)facebook\.com$/.test(host);
+  if (!metaHost && /\/fbevents\.js$/.test(path)) return [scriptHit('meta', null, url, { firstParty: true })];
+  if (/^\/tr\/?$/.test(path) || (!metaHost && /\/tr\/?$/.test(path))) {
     const bodyParams = body && body.includes('=') && !body.trim().startsWith('{') ? Object.fromEntries(new URLSearchParams(body)) : {};
     const params = { ...qs, ...bodyParams };
-    if (!params.id) return [];
-    return [{ platform: 'meta', kind: 'hit', id: params.id, event: params.ev || null, params, consent: null, url }];
+    // First-party /tr endpoints only count when they carry a Meta-shaped payload (numeric pixel id + event).
+    if (!params.id || (!metaHost && !(/^\d{6,}$/.test(params.id) && params.ev))) return [];
+    return [{ platform: 'meta', kind: 'hit', id: params.id, event: params.ev || null, params, consent: null, url, firstParty: !metaHost }];
   }
 
   // TikTok Pixel.
-  if (host === 'analytics.tiktok.com') {
-    if (/\/pixel\/events\.js$/.test(path)) return [scriptHit('tiktok', qs.sdkid || null, url)];
-    if (/^\/api\/v2\/pixel/.test(path)) {
-      const json = tryJson(body);
-      const events = json ? (Array.isArray(json.batch) ? json.batch : [json]) : [];
-      return events
-        .map(ev => {
-          const id = ev?.context?.pixel?.code || ev?.pixel_code || qs.sdkid || null;
-          return { platform: 'tiktok', kind: 'hit', id, event: ev?.event || null, params: flattenForScan(ev), consent: null, url };
-        })
-        .filter(h => h.id || h.event);
-    }
+  const tiktokHost = host === 'analytics.tiktok.com';
+  if (/\/pixel\/events\.js$/.test(path) && (tiktokHost || qs.sdkid)) return [scriptHit('tiktok', qs.sdkid || null, url, { firstParty: !tiktokHost })];
+  if (/\/api\/v2\/pixel/.test(path)) {
+    const json = tryJson(body);
+    const events = json ? (Array.isArray(json.batch) ? json.batch : [json]) : [];
+    const out = events
+      .map(ev => {
+        const id = ev?.context?.pixel?.code || ev?.pixel_code || qs.sdkid || null;
+        return { platform: 'tiktok', kind: 'hit', id, event: typeof ev?.event === 'string' ? ev.event : null, params: flattenForScan(ev), consent: null, url, firstParty: !tiktokHost };
+      })
+      // On first-party hosts require a TikTok-shaped payload.
+      .filter(h => (tiktokHost ? (h.id || h.event) : h.id));
+    if (out.length || tiktokHost) return out;
   }
 
+  const openai = classifyOpenAI(host, path, qs, body, url);
+  if (openai) return openai;
+
   return classifyOtherPixels(u, qs, body, url);
+}
+
+// OpenAI / ChatGPT Ads (docs/research/PLATFORM-SPECS.md §1, checked 2026-10-16):
+// - SDK oaiq.min.js on bzrcdn.openai.com;
+// - browser events on bzr.openai.com/v1/sdk/events: JSON body via sendBeacon/fetch
+//   ({ obref, oppref, user, events: [{ type, id, timestamp_ms, source_url, custom_event_name, data }] }),
+//   or the no-JS image tag (GET with pid, event, event_id, oppref, data[...]);
+// - bzr.openai.com/v1/events is the server Conversions API and must never be called from page code.
+export const OPENAI_INTERNAL_EVENTS = new Set(['oai::diagnostic', 'openai::sdk_init']);
+function classifyOpenAI(host, path, qs, body, url) {
+  if (host === 'bzrcdn.openai.com') return /\/sdk\/oaiq(\.min)?\.js$/.test(path) ? [scriptHit('openai', null, url)] : [];
+  if (host !== 'bzr.openai.com') return null;
+  if (/^\/v1\/events\/?$/.test(path)) {
+    return [{ platform: 'openai', kind: 'hit', id: qs.pid || null, event: 'conversions_api', params: { ...qs }, consent: null, url, capiInBrowser: true }];
+  }
+  if (!/^\/v1\/sdk\/events\/?$/.test(path)) return [];
+  const json = typeof body === 'string' && body.length < 65536 ? tryJson(body) : null;
+  if (json && Array.isArray(json.events)) {
+    const shared = {};
+    if (json.oppref) shared.oppref = String(json.oppref);
+    if (json.obref) shared.obref = String(json.obref);
+    if (json.user && typeof json.user === 'object') Object.assign(shared, flattenForScan(json.user, 'user'));
+    return json.events.filter(ev => ev && typeof ev === 'object').map(ev => {
+      const type = typeof ev.type === 'string' ? ev.type : null;
+      const params = { pid: qs.pid, sv: qs.sv, ...shared, ...flattenForScan(ev) };
+      return { platform: 'openai', kind: 'hit', id: qs.pid || null, event: type === 'custom' && ev.custom_event_name ? ev.custom_event_name : type, params, consent: null, url, internal: OPENAI_INTERNAL_EVENTS.has(type) };
+    });
+  }
+  // Image tag (GET) or an unparsable body: query parameters only.
+  if (!qs.pid && !qs.event) return [];
+  const params = { ...qs };
+  if (params.event_id) params.id = params.event_id;
+  for (const [k, v] of Object.entries(qs)) {
+    const m = k.match(/^data\[(\w+)\]$/);
+    if (m) params[`data.${m[1]}`] = v;
+  }
+  params.type = qs.event;
+  return [{ platform: 'openai', kind: 'hit', id: qs.pid || null, event: qs.event === 'custom' && qs.custom_event_name ? qs.custom_event_name : (qs.event || null), params, consent: null, url, imageTag: true }];
 }
 
 function formOrJson(body) {
@@ -199,6 +254,54 @@ function classifyOtherPixels(u, qs, body, url) {
   return [];
 }
 
+// Google user-provided data (Enhanced Conversions): em=tv.1~em.<hash>~ph.<hash>~fn.<hash>...
+// Returns which fields are present and whether any value looks like clear text instead of a hash.
+// Hex SHA-256, or base64/base64url (a raw "+" may arrive as a space after query decoding).
+const HASH_RE = /^([a-f0-9]{64}|[A-Za-z0-9_\-+/ ]{43}={0,2})$/;
+// Google sends city, region, postal code and country unhashed by design.
+const PLAIN_OK = new Set(['co', 'pc', 'ct', 'rg']);
+const baseKey = k => k.replace(/\d+$/, '');
+export function parseUserData(em) {
+  if (typeof em !== 'string' || !em) return null;
+  let raw = em;
+  try { raw = decodeURIComponent(em); } catch { /* keep raw */ }
+  const fields = {};
+  for (const part of raw.split('~')) {
+    const dot = part.indexOf('.');
+    if (dot < 1) continue;
+    const key = part.slice(0, dot);
+    if (key === 'tv') continue;
+    fields[key] = part.slice(dot + 1);
+  }
+  const keys = Object.keys(fields);
+  if (!keys.length) return null;
+  const clearText = keys.filter(k => fields[k] && !PLAIN_OK.has(baseKey(k)) && !HASH_RE.test(fields[k]));
+  const has = names => keys.some(k => names.includes(baseKey(k)));
+  return { fields: keys, clearText, hasEmail: has(['em']), hasPhone: has(['ph']), hasAddress: has(['fn', 'ln', 'pc', 'co', 'ct', 'sa', 'rg']) };
+}
+
+// User-defined providers from Settings: { name, match, idParam, eventParam }. `match` is a substring, or /regex/.
+export function classifyCustom(url, body, providers = []) {
+  if (!providers.length) return [];
+  const u = safeUrl(url);
+  if (!u) return [];
+  for (const p of providers) {
+    if (!p || !p.name || !p.match) continue;
+    let hitMatch = false;
+    const re = /^\/(.+)\/([a-z]*)$/.exec(p.match);
+    try { hitMatch = re ? new RegExp(re[1], re[2]).test(url) : url.includes(p.match); } catch { hitMatch = false; }
+    if (!hitMatch) continue;
+    const params = { ...Object.fromEntries(u.searchParams), ...formOrJson(body) };
+    return [{ platform: `custom:${p.name}`, kind: 'hit', id: p.idParam ? (params[p.idParam] ?? null) : null, event: p.eventParam ? (params[p.eventParam] ?? null) : null, params, consent: null, url, custom: true }];
+  }
+  return [];
+}
+
+export function platformLabel(platform) {
+  if (PLATFORM_LABELS[platform]) return PLATFORM_LABELS[platform];
+  return String(platform || '').startsWith('custom:') ? platform.slice(7) : platform;
+}
+
 // Flattens nested JSON into "a.b.c": value pairs so PII scans can treat every platform alike.
 export function flattenForScan(obj, prefix = '', out = {}, depth = 0) {
   if (obj === null || typeof obj !== 'object' || depth > 5) return out;
@@ -226,9 +329,10 @@ export const PLATFORM_LABELS = {
   reddit: 'Reddit Pixel',
   clarity: 'Microsoft Clarity',
   hotjar: 'Hotjar',
+  openai: 'ChatGPT Ads (OpenAI)',
 };
 
 // Non-Google ad pixels: no Consent Mode, so the CMP itself has to gate them.
-export const AD_PIXELS = ['meta', 'tiktok', 'linkedin', 'pinterest', 'snapchat', 'x', 'reddit', 'uet'];
+export const AD_PIXELS = ['meta', 'tiktok', 'linkedin', 'pinterest', 'snapchat', 'x', 'reddit', 'uet', 'openai'];
 // Session recorders: should wait for analytics consent.
 export const SESSION_RECORDERS = ['clarity', 'hotjar'];

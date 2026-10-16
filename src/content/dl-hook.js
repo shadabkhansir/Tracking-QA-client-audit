@@ -3,9 +3,14 @@
 (() => {
   if (window.__tqaHooked) return;
   window.__tqaHooked = true;
+  // GPC test: the service worker sets this flag and reloads; expose the signal before any page script runs.
+  try {
+    if (sessionStorage.getItem('__tqa_gpc') === '1') Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { configurable: true, get: () => true });
+  } catch { /* storage blocked */ }
   const MAX_DEPTH = 4;
   const clean = (v, d = 0) => {
     if (typeof v === 'function') return '[fn]';
+    if (typeof v === 'string') return v.length > 2000 ? `${v.slice(0, 2000)}…` : v;
     if (v === null || typeof v !== 'object') return v;
     if (d > MAX_DEPTH) return '[…]';
     if (v instanceof Date) return v.toISOString();
@@ -29,12 +34,19 @@
     try {
       Object.defineProperty(arr, '__tqa', { value: true });
       arr.forEach(e => emit('push', { entry: clean(e), existing: true }));
-      let inner = arr.push;
-      const wrapped = function (...items) {
-        items.forEach(e => emit('push', { entry: clean(e) }));
-        return inner.apply(this, items);
+      // GTM reads push, then installs its own push that calls the one it read. Each assignment gets its own
+      // pass-through wrapper; only the wrapper currently exposed records, so a chained call through an
+      // older wrapper is never recorded twice and can never loop back into itself.
+      let exposed = null;
+      const wrap = fn => {
+        const w = function (...items) {
+          if (w === exposed) items.forEach(e => emit('push', { entry: clean(e) }));
+          return fn.apply(this, items);
+        };
+        return w;
       };
-      Object.defineProperty(arr, 'push', { configurable: true, get: () => wrapped, set: fn => { inner = fn; } });
+      exposed = wrap(arr.push);
+      Object.defineProperty(arr, 'push', { configurable: true, get: () => exposed, set: fn => { exposed = wrap(fn); } });
     } catch { /* frozen array */ }
   };
 

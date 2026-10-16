@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tracking QA</title>
+  <title>Pixel &amp; Tag Checker</title>
+  <link rel="stylesheet" href="../src/brand/tokens.css">
+  <link rel="stylesheet" href="../src/brand/fonts.css">
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
+  <div class="chrome">
   <header class="top">
-    <div class="brand">Tracking QA <span id="plan-badge" class="badge"></span><a class="tgf-mark" data-tgf="landing" data-tgf-content="panel-header" title="Tracking QA &amp; Client Audit by The Growth Folks®">by The Growth Folks®</a></div>
+    <div class="brand"><span class="tgf-logo" aria-hidden="true">TGF</span><span>Tag Checker <span id="plan-badge" class="badge"></span></span><a class="tgf-mark" data-tgf="landing" data-tgf-content="panel-header" title="Pixel &amp; Tag Checker by The Growth Folks®">by The Growth Folks®</a></div>
     <span><a href="#" id="pop-out" class="link" title="Open in a separate window pinned to this tab">Pop out</a> · <a href="#" id="open-options" class="link">Settings</a></span>
   </header>
 
@@ -20,12 +23,13 @@
     <button role="tab" data-tab="monitor" aria-selected="false">Monitor</button>
     <button role="tab" data-tab="history" aria-selected="false">History</button>
   </nav>
+  </div>
 
   <!-- Audit -->
   <section id="tab-live" class="tab-panel">
     <div class="page-url" id="page-url">—</div>
     <div class="opts">
-      <label title="Clicks the cookie banner and compares tag behaviour before and after">Consent test: <select id="opt-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+      <label title="Clicks the cookie banner and compares tag behaviour before and after">Consent test: <select id="opt-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
       <label id="opt-session-wrap" title="Audit every page in the preserved log, e.g. product → cart → checkout"><input type="checkbox" id="opt-session"> Whole session / funnel</label>
     </div>
     <div class="row">
@@ -40,7 +44,9 @@
       </div>
       <div id="platforms" class="card"></div>
       <div id="consent" class="card"></div>
+      <div id="consent-timeline" class="card" hidden></div>
       <div id="consent-test" class="card" hidden></div>
+      <div id="cookies" class="card" hidden></div>
       <ul id="findings" class="findings"></ul>
       <div class="row">
         <button id="save-report" class="primary">Save &amp; open client report</button>
@@ -52,14 +58,20 @@
   <!-- Requests -->
   <section id="tab-requests" class="tab-panel" hidden>
     <div class="row tight">
-      <input type="search" id="hit-search" placeholder="Search events, IDs, parameters…">
+      <input type="search" id="hit-search" aria-label="Search requests" placeholder="Search events, IDs, parameters…">
     </div>
     <div class="chips" id="chips"></div>
     <div class="row tight">
       <label class="small"><input type="checkbox" id="preserve-log"> Preserve log across pages</label>
       <span class="spacer"></span>
-      <button class="secondary sm" id="export-csv">CSV</button>
-      <button class="secondary sm" id="export-json">JSON</button>
+      <details class="menu">
+        <summary>Export</summary>
+        <div class="menu-items">
+          <button class="secondary sm" id="export-csv">CSV</button>
+          <button class="secondary sm" id="export-json">JSON</button>
+          <button class="secondary sm" id="export-har" title="HTTP Archive for developers (Chrome DevTools, Charles, etc.)">HAR</button>
+        </div>
+      </details>
       <button class="secondary sm" id="clear-log">Clear</button>
     </div>
     <p class="muted small" id="hit-count"></p>
@@ -77,10 +89,13 @@
     <p class="small">Opens each URL in a background tab, waits for tags to settle, then audits it. Pages are checked as a <strong>first-time visitor who hasn't consented yet</strong>.</p>
     <label for="scan-urls" class="small">URLs (one per line)</label>
     <textarea id="scan-urls" rows="7" placeholder="https://example.com/&#10;https://example.com/checkout"></textarea>
-    <div class="opts">
-      <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
-      <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
-    </div>
+    <details class="disclosure">
+      <summary>Scan options</summary>
+      <div class="opts">
+        <label>Consent test on every page: <select id="scan-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
+        <label title="Clears cookies and storage for the scanned sites first. You will be logged out of them."><input type="checkbox" id="scan-fresh"> Fresh visitor (clears that site's cookies)</label>
+      </div>
+    </details>
     <div class="row">
       <button id="use-links" class="secondary">Use links from this page</button>
       <button id="start-scan" class="primary">Start scan</button>
@@ -91,14 +106,14 @@
 
   <!-- Monitor -->
   <section id="tab-monitor" class="tab-panel" hidden>
-    <p class="small">Re-scan client sites on a schedule and get a desktop alert when tracking breaks or the score drops. <span class="badge pro">Pro</span></p>
-    <div id="monitor-locked" class="card" hidden>Monitoring is a Pro feature. <a href="#" id="monitor-upgrade" class="link">See plans</a></div>
+    <p class="small">Re-scan client sites on a schedule and get a desktop alert when tracking breaks or the score drops. <span class="badge pro">Pro</span> Runs while Chrome is open.</p>
+    <div id="monitor-locked" class="card" hidden>Scheduled monitoring re-audits up to 20 sites daily or weekly and alerts you when tracking breaks. It's part of Pro.</div>
     <div id="monitor-form">
       <label for="mon-urls" class="small">URLs to monitor</label>
       <textarea id="mon-urls" rows="4" placeholder="https://client.com/&#10;https://client.com/checkout/thank-you"></textarea>
       <div class="row tight">
         <select id="mon-freq"><option value="daily">Daily</option><option value="weekly" selected>Weekly</option></select>
-        <label class="small">Consent: <select id="mon-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option></select></label>
+        <label class="small">Consent: <select id="mon-consent"><option value="">Off</option><option value="accept">Accept all</option><option value="reject">Reject all</option><option value="gpc">GPC signal (US opt-out)</option></select></label>
         <span class="spacer"></span>
         <button id="add-monitor" class="primary sm">Add monitor</button>
       </div>
@@ -109,6 +124,7 @@
 
   <!-- History -->
   <section id="tab-history" class="tab-panel" hidden>
+    <div class="row tight"><span class="spacer"></span><label class="secondary sm btn-file" tabindex="0">Import audit (.json)<input type="file" id="import-audit" accept="application/json,.json" class="visually-hidden"></label></div>
     <ul id="history" class="history"></ul>
     <p class="muted small" id="history-limit"></p>
   </section>

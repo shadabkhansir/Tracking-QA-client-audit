@@ -1,21 +1,36 @@
-import { PLATFORM_LABELS } from '../src/detectors.js';
+import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { describeParams } from '../src/params.js';
-import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId } from '../src/storage.js';
-import { getPlan, getLimits } from '../src/plan.js';
-import { hitsToCsv, download, summaryText } from '../src/export.js';
+import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId, importAudit } from '../src/storage.js';
+import { getPlan, getLimits, appendUpgrade, allFree, planLabel } from '../src/plan.js';
+import { hitsToCsv, hitsToHar, download, summaryText } from '../src/export.js';
 import { wireTgfLinks } from '../src/brand.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const send = msg => chrome.runtime.sendMessage(msg);
 const SHORT = { ga4: 'GA4', gtm: 'GTM', gads: 'G Ads', google_tag: 'G tag', floodlight: 'Floodlight', meta: 'Meta', tiktok: 'TikTok',
-  linkedin: 'LinkedIn', pinterest: 'Pinterest', snapchat: 'Snap', x: 'X', uet: 'MS Ads', reddit: 'Reddit', clarity: 'Clarity', hotjar: 'Hotjar' };
+  linkedin: 'LinkedIn', pinterest: 'Pinterest', snapchat: 'Snap', x: 'X', uet: 'MS Ads', reddit: 'Reddit', clarity: 'Clarity', hotjar: 'Hotjar', openai: 'ChatGPT Ads' };
 
 let activeTabId = null;
 let lastResult = null;
 let tabState = { hits: [], dl: [] };
 const ui = { filter: new Set(), search: '', open: new Set(), openDl: new Set() };
+const short = p => SHORT[p] || platformLabel(p);
+let idLabels = {};
+const withLabel = id => (Object.hasOwn(idLabels, id) && typeof idLabels[id] === 'string' ? `${id} (${idLabels[id]})` : id);
+// Stable row keys: indexes shift once the log is full and old entries drop off.
+const hitKey = h => `${h.requestId || ''}|${h.ts}|${h.id || ''}|${h.event || ''}|${h.kind}`;
+const dlKey = e => `${e.ts}|${e.type}|${dlLabel(e.entry)}`;
+
+// Delivery badge: HTTP status, or why the request never completed.
+function statusBadge(h) {
+  const d = h.delivery;
+  if (!d) return h.kind === 'script' ? 'script' : '…';
+  if (/BLOCKED/.test(d.error || '')) return '<span class="st blk" title="Blocked by a browser extension">blocked</span>';
+  if (d.status >= 400 || (d.status === 0 && d.error && !/ABORTED/.test(d.error))) return `<span class="st bad" title="${esc(d.error || '')}">${esc(d.status || 'failed')}</span>`;
+  return `<span class="st ok" title="${d.ms} ms">${esc(d.status || '')}</span>`;
+}
 
 // ?tabId=N pins the panel to one tab (used by the pop-out window).
 const pinnedTabId = Number(new URLSearchParams(location.search).get('tabId')) || null;
@@ -27,6 +42,13 @@ async function currentTab() {
 }
 
 wireTgfLinks(document, 'panel-footer');
+
+// Export menu: close after picking a format or clicking outside it.
+document.addEventListener('click', e => {
+  for (const menu of document.querySelectorAll('details.menu[open]')) {
+    if (!menu.contains(e.target) || e.target.closest('.menu-items button')) menu.open = false;
+  }
+});
 
 // ---- Tabs -----------------------------------------------------------------------------
 document.querySelectorAll('.tabs button').forEach(btn => {
@@ -43,7 +65,6 @@ $('pop-out').addEventListener('click', async e => {
   const tab = await currentTab();
   chrome.windows.create({ url: chrome.runtime.getURL(`sidepanel/sidepanel.html?tabId=${tab.id}`), type: 'popup', width: 440, height: 820 });
 });
-$('monitor-upgrade').addEventListener('click', e => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 
 // ---- Live state -----------------------------------------------------------------------
 async function refreshLive() {
@@ -73,17 +94,18 @@ function hitMatches(h) {
 function renderHits() {
   const hits = tabState.hits || [];
   const platforms = [...new Set(hits.filter(h => h.platform).map(h => h.platform))];
-  $('chips').innerHTML = platforms.map(p => `<button class="chip" data-p="${esc(p)}" aria-pressed="${ui.filter.has(p)}">${esc(SHORT[p] || p)} ${hits.filter(h => h.platform === p && h.kind === 'hit').length}</button>`).join('');
+  $('chips').innerHTML = platforms.map(p => `<button class="chip" data-p="${esc(p)}" aria-pressed="${ui.filter.has(p)}">${esc(short(p))} ${hits.filter(h => h.platform === p).length}</button>`).join('');
   const shown = hits.map((h, i) => ({ h, i })).filter(({ h }) => hitMatches(h)).reverse().slice(0, 300);
   const n = hits.filter(h => h.kind === 'hit').length;
   $('hit-count').textContent = n ? `${n} tracking requests${ui.filter.size || ui.search ? ` (${shown.filter(x => x.h.kind !== 'nav').length} shown)` : ''}` : 'No tracking requests yet. Reload the page with this panel open.';
   $('hits').innerHTML = shown.map(({ h, i }) => {
     if (h.kind === 'nav') return `<li class="nav">↳ ${esc(h.url)}</li>`;
-    const open = ui.open.has(i);
+    const k = hitKey(h);
+    const open = ui.open.has(k);
     const rows = open ? describeParams(h).map(r => `<tr><td>${esc(r.label)}<code>${esc(r.key)}</code></td><td>${esc(r.value)}</td></tr>`).join('') : '';
-    return `<li data-i="${i}" class="${open ? 'open' : ''}"><span class="p">${esc(SHORT[h.platform] || h.platform)}</span>
-      <span><span>${esc(h.event || (h.kind === 'script' ? 'library loaded' : '—'))}</span><br><span class="id">${esc(h.id || '')}</span></span>
-      <span class="k">${h.kind === 'script' ? 'script' : h.consent?.gcs ? esc(h.consent.gcs) : 'hit'}</span>
+    return `<li data-k="${esc(k)}" class="${open ? 'open' : ''}"><span class="p">${esc(short(h.platform))}${h.source === 'shopify-sandbox' ? '<span class="src" title="Sent from a Shopify custom pixel (Customer Events sandbox)">Shopify</span>' : ''}</span>
+      <span><span>${esc(h.event || (h.kind === 'script' ? 'library loaded' : '—'))}</span><br><span class="id">${esc(withLabel(h.id || ''))}</span></span>
+      <span class="k">${statusBadge(h)}${h.consent?.gcs ? `<br>${esc(h.consent.gcs)}` : ''}</span>
       ${open ? `<table class="params">${rows || '<tr><td colspan="2">No parameters</td></tr>'}</table>` : ''}</li>`;
   }).join('');
 }
@@ -112,27 +134,28 @@ function renderDataLayer() {
   function dlRow(e, i) {
     if (e.type === 'reassigned') return `<li class="bad">⚠ dataLayer was overwritten${e.afterGtm ? ' after GTM loaded' : ''} (${e.previousLength} earlier entries detached)</li>`;
     n++;
-    const open = ui.openDl.has(i);
+    const k = dlKey(e);
+    const open = ui.openDl.has(k);
     const ecommerce = e.entry && e.entry.ecommerce ? '<span class="tag">ecommerce</span>' : '';
-    return `<li data-i="${i}"><span class="n">${n}</span><span class="ev">${esc(dlLabel(e.entry))}</span>${ecommerce}${e.existing ? '<span class="tag">before hook</span>' : ''}
+    return `<li data-k="${esc(k)}"><span class="n">${n}</span><span class="ev">${esc(dlLabel(e.entry))}</span>${ecommerce}${e.existing ? '<span class="tag">before hook</span>' : ''}
       ${open ? `<pre>${esc(JSON.stringify(e.entry, null, 2))}</pre>` : ''}</li>`;
   }
 }
 
 $('hits').addEventListener('click', e => {
   if (e.target.closest('.params')) return;
-  const li = e.target.closest('li[data-i]');
+  const li = e.target.closest('li[data-k]');
   if (!li) return;
-  const i = Number(li.dataset.i);
-  ui.open.has(i) ? ui.open.delete(i) : ui.open.add(i);
+  const k = li.dataset.k;
+  ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k);
   renderHits();
 });
 $('dl').addEventListener('click', e => {
   if (e.target.closest('pre')) return;
-  const li = e.target.closest('li[data-i]');
+  const li = e.target.closest('li[data-k]');
   if (!li) return;
-  const i = Number(li.dataset.i);
-  ui.openDl.has(i) ? ui.openDl.delete(i) : ui.openDl.add(i);
+  const k = li.dataset.k;
+  ui.openDl.has(k) ? ui.openDl.delete(k) : ui.openDl.add(k);
   renderDataLayer();
 });
 $('chips').addEventListener('click', e => {
@@ -155,12 +178,37 @@ function hostStamp() {
   return `${host}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
 }
 $('export-csv').addEventListener('click', () => download(`tracking-${hostStamp()}.csv`, hitsToCsv(tabState.hits.filter(hitMatches)), 'text/csv'));
+$('export-har').addEventListener('click', () => download(`tracking-${hostStamp()}.har`, JSON.stringify(hitsToHar(tabState.hits.filter(hitMatches), { pageUrl: tabState.url }), null, 2), 'application/json'));
 $('export-json').addEventListener('click', () => download(`tracking-${hostStamp()}.json`, JSON.stringify({ url: tabState.url, hits: tabState.hits, dataLayer: tabState.dl }, null, 2), 'application/json'));
 
 // ---- Audit ----------------------------------------------------------------------------
 function signalClass(v) {
   return v === 'granted' ? 'pass' : v === 'denied' ? 'warning' : 'info';
 }
+
+// Consent timeline card: page load → banner → choice → tags, then one row per vendor with a verdict chip.
+const TL_CHIP = {
+  pass: ['pass', '✓ Pass'], before: ['critical', '✕ Before consent'], afterReject: ['critical', '✕ After reject'],
+  noSignal: ['warning', '! No signal'], updateMissing: ['warning', '! Update missing'], cookieless: ['info', 'i Cookieless'],
+  noBanner: ['info', 'i No banner'], unknown: ['info', 'i Run banner test'],
+};
+const secs = ms => (ms === null || ms === undefined ? '' : `+${(ms / 1000).toFixed(1)}s`);
+function renderTimeline(tl) {
+  const el = $('consent-timeline');
+  el.hidden = !tl || !tl.vendors?.length;
+  if (el.hidden) return;
+  const steps = ['Page load', tl.banner ? `Banner${tl.cmp ? ` (${esc(tl.cmp)})` : ''}` : 'No banner detected',
+    tl.mode ? `${tl.mode === 'reject' ? 'Reject all' : 'Accept all'} ${secs(tl.choiceMs)}` : (tl.banner ? 'No choice yet' : ''), 'Tags'].filter(Boolean);
+  el.innerHTML = `<div><strong>Consent timeline</strong><span class="muted small">${tl.mode ? 'banner test' : 'this page load'}</span></div>
+    <div class="tl-line small">${steps.map(s => `<span>${s}</span>`).join('<span class="tl-arrow" aria-hidden="true">→</span>')}</div>
+    <table class="ct-table tl-table"><thead><tr><th scope="col">Vendor</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Verdict</th></tr></thead><tbody>
+    ${tl.vendors.map(v => { const [cls, txt] = TL_CHIP[v.verdict] || TL_CHIP.unknown; return `<tr title="${esc(v.note)}"><td>${esc(short(v.platform))}</td><td>${v.before}${v.firstMs !== null && v.before ? ` <span class="muted">${secs(v.firstMs)}</span>` : ''}${v.signalBefore ? `<div class="muted tl-sig">${esc(v.signalBefore)}</div>` : ''}</td><td>${tl.mode ? v.after : '—'}${v.signalAfter ? `<div class="muted tl-sig">${esc(v.signalAfter)}</div>` : ''}</td><td><span class="sev ${cls}">${txt}</span></td></tr>`; }).join('')}
+    </tbody></table>
+    ${tl.mode ? '' : `<div class="small muted">${tl.banner ? 'Run the cookie banner test (Reject all) for a full before/after verdict.' : ''}</div>`}`;
+}
+
+// Status is always icon + word + colour (brand GUIDELINES §4), never colour alone.
+const SEV_TAG = { critical: '✕ Critical', warning: '! Warning', info: 'i Note', pass: '✓ Pass' };
 
 function renderResult(r) {
   lastResult = r;
@@ -170,7 +218,7 @@ function renderResult(r) {
 
   const plats = Object.entries(r.platforms);
   $('platforms').innerHTML = plats.length
-    ? plats.map(([k, p]) => `<div><span>${esc(PLATFORM_LABELS[k] || k)}</span><span class="ids">${esc(p.ids.join(', ') || 'detected')}</span></div>`).join('')
+    ? plats.map(([k, p]) => `<div><span>${esc(platformLabel(k))}</span><span class="ids">${esc(p.ids.map(withLabel).join(', ') || 'detected')}</span></div>`).join('')
     : '<div class="muted">No platforms detected</div>';
 
   const c = r.consent;
@@ -178,30 +226,40 @@ function renderResult(r) {
     + (c.implemented ? CONSENT_SIGNALS.filter(s => c.signals[s]).map(s => `<div><span>${esc(s)}</span><span class="c-${signalClass(c.signals[s].effective)}">${esc(c.signals[s].effective)}</span></div>`).join('') : '')
     + `<div><span>CMP</span><span>${esc(c.cmps.join(', ') || 'none detected')}</span></div>`;
 
+  renderTimeline(r.consentTimeline);
+
   const t = r.consentTest;
   $('consent-test').hidden = !t;
   if (t) {
     const plats2 = [...new Set([...Object.keys(t.before || {}), ...Object.keys(t.after || {})])];
     $('consent-test').innerHTML = t.accepted
-      ? `<div><strong>Consent test (${t.mode === 'reject' ? 'reject all' : 'accept all'})</strong><span class="muted small">${esc(t.method)}</span></div>
-         <table class="ct-table"><tr><th>Platform</th><th>Before</th><th>After ${t.mode === 'reject' ? 'reject' : 'accept'}</th></tr>
-         ${plats2.map(p => `<tr><td>${esc(SHORT[p] || p)}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('')}</table>`
+      ? `<div><strong>Consent test (${({ reject: 'reject all', gpc: 'GPC signal' })[t.mode] || 'accept all'})</strong><span class="muted small">${esc(t.method)}</span></div>
+         <table class="ct-table"><tr><th>Platform</th><th>Before</th><th>After ${({ reject: 'reject', gpc: 'GPC on' })[t.mode] || 'accept'}</th></tr>
+         ${plats2.map(p => `<tr><td>${esc(short(p))}</td><td>${t.before?.[p] || 0}</td><td>${t.after?.[p] || 0}</td></tr>`).join('')}</table>`
       : `<div><strong>Consent test</strong><span class="c-warning">not run</span></div><div class="small">${esc(t.reason || '')}</div>`;
   }
 
+  const ck = r.cookies;
+  $('cookies').hidden = !ck;
+  if (ck) {
+    const by = cat => ck.filter(c => c.category === cat);
+    const line = (cat, label) => (by(cat).length ? `<div><span>${label}</span><span class="ids">${esc(by(cat).map(c => c.name).join(', '))}</span></div>` : '');
+    $('cookies').innerHTML = `<div><strong>First-party cookies</strong><span>${ck.length}</span></div>${line('advertising', 'Advertising')}${line('analytics', 'Analytics')}${line('consent', 'Consent')}${by('other').length + by('functional').length ? `<div><span>Other</span><span class="ids">${by('other').length + by('functional').length}</span></div>` : ''}`;
+  }
+
   $('findings').innerHTML = r.findings.map(f => `
-    <li class="${f.severity}"><div class="t">${esc(f.title)}</div>
+    <li class="${f.severity}"><div class="t"><span class="sev ${f.severity}">${SEV_TAG[f.severity] || ''}</span>${esc(f.title)}</div>
       ${f.detail ? `<div class="d">${esc(f.detail)}</div>` : ''}
       ${f.fix ? `<div class="f">Fix: ${esc(f.fix)}</div>` : ''}</li>`).join('');
   if (!r.injectable) {
-    $('findings').insertAdjacentHTML('afterbegin', '<li class="info"><div class="t">Page internals not readable</div><div class="d">Chrome blocks extensions on this page type, so only network requests were checked.</div></li>');
+    $('findings').insertAdjacentHTML('afterbegin', `<li class="info"><div class="t"><span class="sev info">${SEV_TAG.info}</span>Page internals not readable</div><div class="d">Chrome blocks extensions on this page type, so only network requests were checked.</div></li>`);
   }
 }
 
 $('run-audit').addEventListener('click', async () => {
   const tab = await currentTab();
   $('run-audit').disabled = true;
-  $('run-audit').textContent = $('opt-consent').value ? 'Testing consent…' : 'Auditing…';
+  $('run-audit').textContent = $('opt-consent').value === 'gpc' ? 'Reloading with GPC…' : $('opt-consent').value ? 'Testing consent…' : 'Auditing…';
   try {
     const r = await send({ type: 'audit-tab', tabId: tab.id, consentTest: $('opt-consent').value || false, session: $('opt-session').checked && !$('opt-session-wrap').hidden });
     if (r?.error) throw new Error(r.error);
@@ -223,6 +281,7 @@ $('reload-page').addEventListener('click', async () => {
 $('save-report').addEventListener('click', async () => {
   if (!lastResult) return;
   const saved = await send({ type: 'save-page-audit', result: lastResult });
+  if (!saved?.id) return alert(`Could not save the audit: ${saved?.error || 'browser storage is full. Delete old audits in History.'}`);
   chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(saved.id)}`) });
 });
 
@@ -248,7 +307,9 @@ $('scan-fresh').addEventListener('change', async e => {
   if (!ok) e.target.checked = false;
 });
 
-const parseUrls = text => text.split('\n').map(s => s.trim()).filter(s => /^https?:\/\//.test(s));
+const parseUrls = text => [...new Set(text.split('\n').map(s => s.trim()).filter(s => {
+  try { return /^https?:$/.test(new URL(s).protocol); } catch { return false; }
+}))];
 
 $('start-scan').addEventListener('click', async () => {
   const urls = parseUrls($('scan-urls').value);
@@ -264,6 +325,7 @@ $('start-scan').addEventListener('click', async () => {
 async function renderMonitors() {
   const pro = (await getPlan()) === 'pro';
   $('monitor-locked').hidden = pro;
+  if (!pro) appendUpgrade($('monitor-locked'), 'monitor-tab', 'Upgrade to Pro');
   $('monitor-form').hidden = !pro;
   $('run-monitors').hidden = !pro;
   const monitors = await listMonitors();
@@ -276,7 +338,13 @@ async function renderMonitors() {
 $('add-monitor').addEventListener('click', async () => {
   const urls = parseUrls($('mon-urls').value);
   if (!urls.length) return alert('Add at least one http(s) URL.');
+  // Scheduling and alerts are optional permissions, asked for only when monitoring is first used.
+  const granted = await chrome.permissions.request({ permissions: ['alarms', 'notifications'] }).catch(() => false);
+  if (!granted) return alert('Monitoring needs permission to schedule scans and show alerts.');
   const monitors = await listMonitors();
+  if (monitors.some(m => m.urls.join('\n') === urls.join('\n'))) return alert('These URLs are already monitored.');
+  const { monitors: maxMonitors } = await getLimits();
+  if (monitors.length >= maxMonitors) return alert(`Your plan allows ${maxMonitors} monitors. Remove one to add another.`);
   monitors.push({ id: newId(), host: new URL(urls[0]).hostname, urls, frequency: $('mon-freq').value, consentTest: $('mon-consent').value || false, enabled: true, lastRun: 0 });
   await saveMonitors(monitors);
   $('mon-urls').value = '';
@@ -302,6 +370,7 @@ chrome.runtime.onMessage.addListener(msg => {
   }
   if (msg.type === 'scan-done') {
     $('start-scan').disabled = false;
+    if (msg.error) { $('scan-status').textContent = ''; return alert(`The scan finished but could not be saved: ${msg.error}`); }
     chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(msg.auditId)}`) });
   }
 });
@@ -318,11 +387,27 @@ async function renderHistory() {
   const audits = await listAudits();
   $('history').innerHTML = audits.length ? audits.map(a => {
     const score = a.type === 'site' ? a.site.score : a.result.score;
-    const label = a.type === 'site' ? `${a.pages.length}-page scan${a.monitorId ? ' (monitor)' : ''}` : a.result.session ? 'Funnel audit' : 'Page audit';
-    return `<li><div><div>${esc(a.host)}</div><div class="meta">${esc(label)} · score ${score} · ${new Date(a.createdAt).toLocaleString()}</div></div>
+    const label = `${a.type === 'site' ? `${a.pages.length}-page scan${a.monitorId ? ' (monitor)' : ''}` : a.result.session ? 'Funnel audit' : 'Page audit'}${a.imported ? ' · imported' : ''}`;
+    return `<li><div><div>${esc(a.host)}</div><div class="meta">${esc(label)} · score ${esc(score)} · ${new Date(a.createdAt).toLocaleString()}</div></div>
       <div><button data-open="${esc(a.id)}">Open</button><button class="del" data-del="${esc(a.id)}">Delete</button></div></li>`;
   }).join('') : '<li class="muted">No saved audits yet.</li>';
 }
+
+document.querySelector('.btn-file').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('import-audit').click(); }
+});
+$('import-audit').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const audit = await importAudit(JSON.parse(await file.text()));
+    renderHistory();
+    chrome.tabs.create({ url: chrome.runtime.getURL(`report/report.html?id=${encodeURIComponent(audit.id)}`) });
+  } catch (err) {
+    alert(`Could not import: ${err.message}`);
+  }
+});
 
 $('history').addEventListener('click', async e => {
   const open = e.target.closest('[data-open]');
@@ -335,14 +420,23 @@ $('history').addEventListener('click', async e => {
 async function renderPlan() {
   const plan = await getPlan();
   const limits = await getLimits();
-  $('plan-badge').textContent = plan;
-  $('plan-badge').classList.toggle('pro', plan === 'pro');
-  $('scan-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan: up to ${limits.scanPages} pages per scan.`;
-  $('history-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan keeps your last ${limits.historyItems} audits.`;
+  const label = planLabel(plan);
+  $('plan-badge').textContent = label;
+  $('plan-badge').classList.toggle('pro', label === 'Pro');
+  $('scan-limit').textContent = `${label} plan: up to ${limits.scanPages} pages per scan.`;
+  $('history-limit').textContent = `${label} plan keeps your last ${limits.historyItems} audits.`;
+  // Free launch: no Pro labels anywhere.
+  if (allFree()) document.querySelectorAll('.badge.pro').forEach(b => { b.hidden = true; });
+  if (plan !== 'pro') {
+    appendUpgrade($('scan-limit'), 'scan-limit', 'Scan 50 pages with Pro');
+    appendUpgrade($('history-limit'), 'history-limit', 'Keep 500 with Pro');
+  }
 }
 
 async function init() {
-  const { preserveLog } = await getSettings();
+  const settings = await getSettings();
+  const { preserveLog } = settings;
+  idLabels = settings.idLabels || {};
   $('preserve-log').checked = preserveLog;
   $('opt-session-wrap').hidden = !preserveLog;
   renderPlan();
@@ -351,5 +445,6 @@ async function init() {
 
 if (!pinnedTabId) chrome.tabs.onActivated.addListener(refreshLive);
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (tabId === activeTabId && info.url) refreshLive(); });
-chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.plan) { renderPlan(); renderMonitors(); } });
+// The plan changes with the developer toggle or when a licence is activated, revalidated or removed.
+chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && (changes.plan || changes['license'])) { renderPlan(); renderMonitors(); } });
 init();

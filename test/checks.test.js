@@ -81,9 +81,10 @@ test('consent set via GTM template (runtime state only, no dataLayer command) is
   assert.ok(!ids(r).includes('consent-default-late'), 'gtm.js before CMP default must not count as late');
 });
 
-test('update without default => late default', () => {
-  const r = runChecks({ url: 'u', hits: ga4({ en: 'page_view', dl: 'u', gcd: '13n3n3n2n5l1' }), probe: null });
-  assert.ok(ids(r).includes('consent-default-late'));
+test('update without default is an info note (region-scoped default), not a critical', () => {
+  const r = runChecks({ url: 'u', hits: ga4({ en: 'page_view', dl: 'u', gcd: '13n3n3n2n5l1' }) });
+  assert.ok(ids(r).includes('consent-no-default-here'));
+  assert.ok(!ids(r).includes('consent-default-late'));
 });
 
 test('dataLayer default after gtag config => late default', () => {

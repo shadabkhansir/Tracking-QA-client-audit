@@ -1,0 +1,1 @@
+https://bzr.openai.com/v1/sdk/events?pid=px_test123&event=order_created&event_id=order-1002&data%5Btype%5D=contents&data%5Bamount%5D=25.99&data%5Bcurrency%5D=USD

@@ -3,27 +3,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tracking QA Settings</title>
+  <title>Pixel &amp; Tag Checker settings</title>
+  <link rel="stylesheet" href="../src/brand/tokens.css">
+  <link rel="stylesheet" href="../src/brand/fonts.css">
   <link rel="stylesheet" href="../sidepanel/sidepanel.css">
   <style>
-    body { max-width: 560px; margin: 0 auto; padding: 24px 16px; }
-    label { display: block; font-weight: 600; margin: 14px 0 4px; }
-    input[type=text] { width: 100%; font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    #logo-preview { max-height: 48px; display: block; margin-top: 8px; }
-    fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 4px 14px 14px; margin: 18px 0; }
-    legend { font-weight: 650; padding: 0 6px; }
-    .locked { opacity: .55; pointer-events: none; }
+    body { max-width: 640px; margin: 0 auto; padding: var(--s-6) var(--s-4) var(--s-7); }
+    .page-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-5); }
+    .page-head .tgf-logo { width: 36px; height: 36px; border-radius: 10px; font-size: 12px; }
+    h1 { font-size: var(--t-xl); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 0; }
+    label { display: block; font-weight: 600; margin: var(--s-4) 0 6px; }
+    input[type=text] { width: 100%; }
+    .hint { font-size: var(--t-xs); color: var(--ink-soft); margin-top: var(--s-1); }
+    #logo-preview { max-height: 48px; display: block; margin-top: var(--s-2); border-radius: var(--r-sm); }
+    textarea { margin-top: 6px; }
+    fieldset { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s-2) var(--s-4) var(--s-4); margin: 0 0 var(--s-4); min-width: 0; }
+    legend { float: left; width: 100%; font-size: var(--t-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--brand); padding: var(--s-3) 0 var(--s-1); margin: 0; }
+    legend + * { clear: both; }
+    fieldset > p:first-of-type { clear: both; }
+    label:has(> input[type=checkbox]) { display: flex; align-items: center; font-weight: 400; }
+    input[type=color] { width: 44px; height: 36px; padding: 3px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); cursor: pointer; }
+    input[type=file] { font: inherit; font-size: var(--t-xs); }
+    .locked { opacity: .5; pointer-events: none; }
   </style>
 </head>
 <body>
-  <h1 style="font-size:18px;margin-bottom:2px">Tracking QA settings</h1>
-  <a class="tgf-mark" data-tgf="landing" data-tgf-content="options-header">Tracking QA &amp; Client Audit by The Growth Folks®</a>
+  <header class="page-head">
+    <span class="tgf-logo" aria-hidden="true">TGF</span>
+    <div>
+      <h1>Pixel &amp; Tag Checker settings</h1>
+      <a class="tgf-mark" data-tgf="landing" data-tgf-content="options-header">Pixel &amp; Tag Checker by The Growth Folks®</a>
+    </div>
+  </header>
 
   <fieldset>
     <legend>Plan</legend>
     <p>Current plan: <strong id="plan-name">—</strong></p>
-    <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, no watermark), 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
+    <p class="hint">Pro (coming soon, not yet available to buy): white-label reports (your logo, colours, CTA, credit line optional), "changes since last audit", 50-page scans, scheduled monitoring with alerts, 500 saved audits.</p>
+    <div id="license-box" hidden>
+      <label for="license-key">Licence key</label>
+      <div class="row tight">
+        <input type="text" id="license-key" placeholder="Paste the key from your purchase email" autocomplete="off" spellcheck="false">
+        <button class="primary" id="license-activate">Activate</button>
+      </div>
+      <p class="hint" id="license-status"></p>
+      <div class="row tight">
+        <a class="link" id="license-buy" target="_blank" rel="noopener">Get Pro</a>
+        <a class="link" id="license-manage" target="_blank" rel="noopener">Manage subscription</a>
+        <button class="secondary" id="license-deactivate" hidden>Deactivate on this browser</button>
+      </div>
+    </div>
     <div id="dev-toggle" hidden>
       <label><input type="checkbox" id="dev-pro"> Developer: enable Pro (unpacked installs only)</label>
     </div>
@@ -34,7 +63,7 @@
     <label for="agencyName">Agency name</label>
     <input type="text" id="agencyName">
     <label for="contact">Contact line</label>
-    <input type="text" id="contact" placeholder="hello@agency.com · agency.com">
+    <input type="text" id="contact" placeholder="team@agency.com · agency.com">
     <label for="preparedFor">Default "Prepared for"</label>
     <input type="text" id="preparedFor" placeholder="Client name">
     <label for="ctaText">Report call-to-action</label>
@@ -51,8 +80,21 @@
   </fieldset>
 
   <fieldset>
+    <legend>ID labels</legend>
+    <label for="idLabels" style="font-weight:400">One per line: <code>ID = label</code>. Shown next to the ID in the panel and in client reports.</label>
+    <textarea id="idLabels" rows="4" placeholder="G-ABC123 = Main GA4 property&#10;GTM-XYZ = Agency container&#10;1234567890123 = Meta pixel (US store)"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>Custom providers</legend>
+    <label for="customProviders" style="font-weight:400">Track any other endpoint (in-house collectors, proxies, other vendors). One per line: <code>Name | URL contains (or /regex/) | ID parameter | event parameter</code>.</label>
+    <textarea id="customProviders" rows="4" placeholder="Segment | api.segment.io/v1 | writeKey | event&#10;Our collector | /collect/v1/ | site_id | ev"></textarea>
+    <div class="hint">Parameters are read from the query string, form body or JSON body (nested keys as a.b.c). Built-in vendors always take priority.</div>
+  </fieldset>
+
+  <fieldset>
     <legend>Report credit</legend>
-    <label style="font-weight:400"><input type="checkbox" id="showCredit"> Show a small "Made with Tracking QA &amp; Client Audit by The Growth Folks®" line in the footer of client reports</label>
+    <label style="font-weight:400"><input type="checkbox" id="showCredit"> Show a small "Made with Pixel &amp; Tag Checker by The Growth Folks®" line in the footer of client reports</label>
     <div class="hint">Your own name, logo and contact line always stay the main branding. Turn this off to leave the credit out of reports you send to clients. Saved as soon as you change it.</div>
   </fieldset>
 
