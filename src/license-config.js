@@ -2,6 +2,9 @@
 // only this file differs. Keep `enabled: false` until products exist and the privacy policy/store listing
 // mention licence validation (see docs/LICENSING.md).
 export const LICENSE_CONFIG = {
+  // Launch switch: true = every feature is free for everyone (no limits, no upgrade prompts, no Pro badges).
+  // Turn off together with `enabled: true` when Pro goes on sale (docs/PRO-LAUNCH.md).
+  allFree: true,
   enabled: false,
   // 'dodo' (Dodo Payments) or 'lemonsqueezy'.
   provider: 'dodo',

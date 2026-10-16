@@ -13,7 +13,7 @@ _Version 1.1.0 · 2026-10-16 · repo `shadabkhansir/Tracking-QA-client-audit`. E
 | **short_name** | Tag Checker |
 | **version** | 1.1.0 |
 | **Chrome Web Store** | Not live yet. Show "Coming soon" until the link exists. |
-| **Price** | Free. Pro ($19/month or $190/year, 7-day trial) is "coming soon"; don't show a buy button (docs/PRO-LAUNCH.md). |
+| **Price** | **Free: every feature, no account.** Free launch (`allFree: true`). Don't show prices, Pro or a buy button. Paid plans may come later (docs/PRO-LAUNCH.md). |
 | **Contact** | team@thegrowthfolks.com |
 
 **Pages the extension links to:** each one must exist.
@@ -23,7 +23,7 @@ _Version 1.1.0 · 2026-10-16 · repo `shadabkhansir/Tracking-QA-client-audit`. E
 - `/tools/tag-checker/pricing/` (upgrade links)
 - `/learn/`
 
-Incoming links carry `utm_source=chrome-extension`. Upgrade links add `utm_medium=upgrade` and `utm_content=<prompt>`.
+Incoming links carry `utm_source=chrome-extension` (upgrade prompts are switched off during the free launch). The `/pricing/` page can say "Free during launch" until paid plans exist.
 
 ## Copy
 
@@ -41,7 +41,7 @@ Incoming links carry `utm_source=chrome-extension`. Upgrade links add `utm_mediu
 3. **Meta data restrictions pre-check.** Finds health and other sensitive words in URLs, UTMs, custom events and custom data that may get your Meta events restricted, and tells you how to fix them.
 4. **One-click audit of 16 platforms.** Firing, not firing, firing twice or blocked by an ad blocker, with the HTTP status of every request, a 0–100 score and plain-English fixes. Includes purchase value, currency and order ID checks across platforms, plus personal-data leak detection.
 5. **Cookie banner and GPC tests.** Clicks "Accept all" or "Reject all" on major consent platforms for you, reads Google Consent Mode v2, and reloads with Global Privacy Control to check US opt-outs.
-6. **Client-ready report.** Score, fixes, the consent timeline and changes since the last audit, downloadable as a PDF. On Pro: your logo, colour and call-to-action.
+6. **Client-ready report.** Score, fixes, the consent timeline and changes since the last audit, downloadable as a PDF, with your own logo, colour and call-to-action (white-label, free).
 
 **Steps (how it works):**
 1. Add Pixel & Tag Checker to Chrome and click its icon to open the side panel.
@@ -50,7 +50,7 @@ Incoming links carry `utm_source=chrome-extension`. Upgrade links add `utm_mediu
 4. Read the score, the consent timeline and the fixes, then **Save & open client report** to download the PDF.
 
 **Five FAQs:**
-1. **Is it free?** Yes. Every check, the consent and GPC tests, the inspectors and exports are free. Pro (coming soon) adds white-label reports, 50-page scans, 500 saved audits, full change history and monitoring.
+1. **Is it free?** Yes, completely: every check, the consent and GPC tests, white-label client reports, 50-page scans, 500 saved audits and scheduled monitoring. No account, no card.
 2. **Does it send my data anywhere?** No. Everything runs in your browser. There's no account, server or analytics, and saved audits stay in your browser.
 3. **Can it see server-side tracking (Conversions API, Measurement Protocol)?** No. It sees what the browser sends. It checks the browser side of deduplication (event IDs) and click-ID capture, and says clearly where server-side checks are needed.
 4. **How does it know a tag fired before consent?** Google and Microsoft Ads include a consent value in each request; for every other vendor it compares the request time with the moment the banner choice was made. Run the cookie banner test as a fresh visitor for a full verdict.
@@ -76,7 +76,7 @@ Full table in `docs/PERMISSIONS.md`. Version 1.1 added no permissions.
 | `declarativeNetRequestWithHostAccess` | Add `Sec-GPC: 1` to one tab during a GPC test only. |
 | `storage`, `unlimitedStorage` | Live logs, saved audits, settings and branding, all in your browser. |
 | Optional `browsingData` | "Fresh visitor" scans clear cookies for the scanned sites only, after confirmation. |
-| Optional `alarms`, `notifications` | Scheduled monitoring (Pro). |
+| Optional `alarms`, `notifications` | Scheduled monitoring. |
 
 **Data practice:**
 - Local-first; no server, analytics, ads or third-party code; no data sent anywhere.

@@ -26,7 +26,7 @@ The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing 
 - **dataLayer tab**: every push in order, captured from `document_start`, so it survives GTM replacing `push()`. Flags `dataLayer = []` overwrites.
 - **Funnel mode**: audits a whole preserved session (product → cart → checkout → thank-you).
 - **Multi-page scan**: background tabs as a first-time visitor who hasn't consented. Optional "fresh visitor" mode clears that site's cookies first; it uses the optional `browsingData` permission.
-- **Monitoring (planned Pro)**: daily or weekly re-scans through `chrome.alarms`, with a desktop notification when new issues appear or the score drops.
+- **Monitoring**: daily or weekly re-scans through `chrome.alarms`, with a desktop notification when new issues appear or the score drops.
 - **Client report**:
   - branded and print-to-PDF
   - executive summary, findings with fixes
@@ -94,17 +94,22 @@ In priority order:
 
 That log survives a page overwriting `window.dataLayer`. CMP templates in GTM set defaults through `setDefaultConsentState` and never touch `dataLayer`, so reading only `dataLayer` would wrongly flag those sites.
 
-## Free vs Pro
+## Plans
 
-| | Free | Pro (planned) |
+**v1.1 ships as a free launch:** every feature unlocked for everyone, with no limits, upgrade prompts or Pro badges. The switch is `allFree: true` in `src/license-config.js`.
+
+The Free/Pro split below is built and tested, but switched off. It comes back when `allFree` is set to `false` (see `docs/PRO-LAUNCH.md`).
+
+| | Free (after launch) | Pro |
 |---|---|---|
-| Live checks | ✓ | ✓ |
-| Client report | Watermarked, default branding | Your logo, colour, contact, no watermark |
+| Live checks, consent timeline, ChatGPT Ads, Meta pre-check | ✓ | ✓ |
+| Client report | TGF credit, default branding | Your logo, colour, contact, CTA; credit optional |
 | Pages per scan | 3 | 50 |
 | Saved audits | 5 | 500 |
+| "Changes since last audit" | Preview | Full |
 | Scheduled monitoring + alerts | – | ✓ |
 
-Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md); payments and licence keys: [`docs/LICENSING.md`](docs/LICENSING.md) (Dodo Payments, off until configured in `src/license-config.js`). Limits live in `src/plan.js`. **Payments are not wired up yet.** Connect a provider (ExtensionPay, or Lemon Squeezy/Paddle with license-key checks) and call `setPlan('pro')`. On unpacked installs the Options page has a developer toggle to turn Pro on.
+Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md); payments and licence keys: [`docs/LICENSING.md`](docs/LICENSING.md) (Dodo Payments, off until configured in `src/license-config.js`). Limits live in `src/plan.js`. Licence-key activation (Dodo Payments) is built and tested but off (`enabled: false`). On unpacked installs the Options page has a developer toggle for Pro once `allFree` is off.
 
 ## Develop
 

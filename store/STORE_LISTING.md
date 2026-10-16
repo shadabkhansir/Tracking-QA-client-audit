@@ -56,7 +56,7 @@ CLIENT REPORT
 Score, plain-English fixes, the consent timeline by vendor and changes since the last audit. Download as PDF.
 
 FREE
-Every check, the consent and GPC tests, the inspectors and exports. Scans cover 3 pages at a time, the last 5 audits are kept, and reports carry a small credit line. A Pro plan with white-label reports, larger scans and monitoring is coming.
+Everything is free: every check, the consent and GPC tests, the inspectors and exports, white-label client reports with your own logo, colours and call-to-action, scans of up to 50 pages, 500 saved audits and scheduled monitoring with desktop alerts (runs while Chrome is open). No account needed.
 
 PRIVACY
 Everything runs in your browser. No account, no server, no analytics: nothing you audit is sent anywhere. Policy: https://thegrowthfolks.com/tools/tag-checker/privacy/
@@ -67,7 +67,7 @@ Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker/
 ```
 
 > Before publishing:
-> - Keep Pro features worded as "coming" until payments work (docs/PRO-LAUNCH.md).
+> - This listing is for the free launch (`allFree: true` in src/license-config.js): don't mention Pro or prices. When paid plans start, follow docs/PRO-LAUNCH.md.
 > - Re-check the ChatGPT Ads facts against https://developers.openai.com/ads (last checked 2026-10-16).
 
 **Graphics** (regenerate with `node store/make-graphics.mjs`)
@@ -208,6 +208,12 @@ ticked even though nothing leaves the browser.
 
 Certify all three:
 
+**Limited Use statement:** publish this on the privacy page (Chrome Web Store User Data Policy requires it on the website):
+
+```
+The use of information received from Chrome APIs by Pixel & Tag Checker adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements. All data the extension reads stays in your browser and is used only to show you tracking-audit results; it is never sold, transferred, used for advertising or read by people.
+```
+
 - [x] I do not sell or transfer user data to third parties, outside of the approved use cases
 - [x] I do not use or transfer user data for purposes that are unrelated to my item's single purpose
 - [x] I do not use or transfer user data to determine creditworthiness or for lending purposes
@@ -224,7 +230,7 @@ No account or login is needed.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
 5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after, plus a "Consent timeline" card with a verdict per vendor. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
-6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding is shown there but locked until the planned Pro plan launches.
+6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding (agency name, logo, colour, contact line, call-to-action) is set there too. Every feature is free in this version; there is no payment, account or licence flow.
 
-Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. The ChatGPT Ads, consent timeline and Meta sensitive-data checks work on the same locally observed requests; they added no permissions. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding belong to a planned Pro plan that is not purchasable yet; the UI labels them "coming soon". The alarms and notifications permissions are optional and only requested when monitoring is enabled.
+Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. The ChatGPT Ads, consent timeline and Meta sensitive-data checks work on the same locally observed requests; they added no permissions. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding are free in this version. The alarms and notifications permissions are optional and only requested when monitoring is enabled.
 ```

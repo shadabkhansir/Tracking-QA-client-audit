@@ -1,6 +1,6 @@
 import { getBrand, setBrand, getSettings, setSettings } from '../src/storage.js';
 import { wireTgfLinks } from '../src/brand.js';
-import { getPlan, setPlan, LIMITS, upgradeUrl } from '../src/plan.js';
+import { getPlan, setPlan, LIMITS, upgradeUrl, allFree, planLabel } from '../src/plan.js';
 import { LICENSE_CONFIG } from '../src/license-config.js';
 import { activateLicense, deactivateLicense, getLicense, revalidateIfDue, planFromLicense } from '../src/license.js';
 
@@ -19,7 +19,12 @@ async function load() {
   $('customProviders').value = (settings.customProviders || []).map(p => [p.name, p.match, p.idParam, p.eventParam].join(' | ')).join('\n');
 
   const plan = await getPlan();
-  $('plan-name').textContent = plan === 'pro' ? 'Pro' : 'Free';
+  $('plan-name').textContent = planLabel(plan);
+  if (allFree()) {
+    document.querySelector('#plan-name').closest('fieldset').querySelector('.hint').textContent =
+      'Every feature is free during launch: white-label reports (your logo, colours and call-to-action), "changes since last audit", 50-page scans, scheduled monitoring with alerts and 500 saved audits.';
+    document.querySelectorAll('.badge.pro').forEach(b => { b.hidden = true; });
+  }
   await renderLicense();
   $('branding').classList.toggle('locked', !LIMITS[plan].customBranding);
   $('dev-pro').checked = plan === 'pro';

@@ -1,7 +1,7 @@
 import { getAudit, getBrand, listAudits, updateAudit } from '../src/storage.js';
 import { diffFindings, findPrevious } from '../src/diff.js';
 import { findingsToCsv, download, summaryText } from '../src/export.js';
-import { getPlan, LIMITS, appendUpgrade } from '../src/plan.js';
+import { getPlan, LIMITS, appendUpgrade, allFree } from '../src/plan.js';
 import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { getSettings } from '../src/storage.js';
@@ -223,7 +223,7 @@ async function render() {
     </div>`;
 
   const note = document.getElementById('toolbar-note');
-  note.textContent = plan === 'pro' ? '' : 'Free plan: reports carry a small credit line. Your logo, colours and CTA are part of Pro.';
+  note.textContent = plan === 'pro' || allFree() ? '' : 'Free plan: reports carry a small credit line. Your logo, colours and CTA are part of Pro.';
   if (plan !== 'pro') appendUpgrade(note, 'report-toolbar', 'Upgrade to Pro');
   const teaser = document.getElementById('changes-teaser');
   if (teaser) appendUpgrade(teaser, 'report-changes', 'See it with Pro');

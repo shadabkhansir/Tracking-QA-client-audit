@@ -2,7 +2,7 @@ import { platformLabel } from '../src/detectors.js';
 import { CONSENT_SIGNALS } from '../src/checks.js';
 import { describeParams } from '../src/params.js';
 import { listAudits, deleteAudit, getSettings, setSettings, listMonitors, saveMonitors, newId, importAudit } from '../src/storage.js';
-import { getPlan, getLimits, appendUpgrade } from '../src/plan.js';
+import { getPlan, getLimits, appendUpgrade, allFree, planLabel } from '../src/plan.js';
 import { hitsToCsv, hitsToHar, download, summaryText } from '../src/export.js';
 import { wireTgfLinks } from '../src/brand.js';
 
@@ -420,10 +420,13 @@ $('history').addEventListener('click', async e => {
 async function renderPlan() {
   const plan = await getPlan();
   const limits = await getLimits();
-  $('plan-badge').textContent = plan;
-  $('plan-badge').classList.toggle('pro', plan === 'pro');
-  $('scan-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan: up to ${limits.scanPages} pages per scan.`;
-  $('history-limit').textContent = `${plan === 'pro' ? 'Pro' : 'Free'} plan keeps your last ${limits.historyItems} audits.`;
+  const label = planLabel(plan);
+  $('plan-badge').textContent = label;
+  $('plan-badge').classList.toggle('pro', label === 'Pro');
+  $('scan-limit').textContent = `${label} plan: up to ${limits.scanPages} pages per scan.`;
+  $('history-limit').textContent = `${label} plan keeps your last ${limits.historyItems} audits.`;
+  // Free launch: no Pro labels anywhere.
+  if (allFree()) document.querySelectorAll('.badge.pro').forEach(b => { b.hidden = true; });
   if (plan !== 'pro') {
     appendUpgrade($('scan-limit'), 'scan-limit', 'Scan 50 pages with Pro');
     appendUpgrade($('history-limit'), 'history-limit', 'Keep 500 with Pro');

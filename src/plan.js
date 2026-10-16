@@ -19,14 +19,21 @@ async function isDevInstall() {
   return devInstall;
 }
 
-export async function getPlan() {
+// Launch period: every feature free for everyone (LICENSE_CONFIG.allFree). Internally that is the 'pro' tier.
+export const allFree = (cfg = LICENSE_CONFIG) => !!cfg.allFree;
+
+export async function getPlan(cfg = LICENSE_CONFIG) {
+  if (allFree(cfg)) return 'pro';
   if (await isDevInstall()) {
     const { plan } = await chrome.storage.local.get('plan');
     if (plan === 'pro') return 'pro';
   }
-  if (!LICENSE_CONFIG.enabled) return 'free';
+  if (!cfg.enabled) return 'free';
   return planFromLicense(await getLicense()) === 'pro' ? 'pro' : 'free';
 }
+
+// What the UI calls the current plan: "Free" for everyone during the free launch.
+export const planLabel = (plan, cfg = LICENSE_CONFIG) => (allFree(cfg) ? 'Free' : plan === 'pro' ? 'Pro' : 'Free');
 
 export async function setPlan(plan) {
   await chrome.storage.local.set({ plan: plan === 'pro' ? 'pro' : 'free' });
@@ -54,6 +61,7 @@ export function upgradeUrl(where, period = '') {
 // Appends "Upgrade to Pro" (or "Pro: coming soon" before launch) after `el`'s text. Built with DOM nodes, not HTML.
 export function appendUpgrade(el, where, label = 'Upgrade to Pro') {
   el.querySelector('.upgrade')?.remove();
+  if (allFree()) return;
   const node = proOnSale() ? document.createElement('a') : document.createElement('span');
   node.className = 'upgrade';
   if (proOnSale()) {

@@ -228,6 +228,13 @@ chrome.runtime.onInstalled.addListener(details => {
   scheduleMonitorTick();
   // First install only (not updates): open the getting-started page. tabs.create needs no "tabs" permission.
   if (details.reason === 'install') chrome.tabs.create({ url: LINKS.welcome('welcome') }).catch(() => {});
+  // Local install date, so free-launch users can be grandfathered if paid plans start (docs/PRO-LAUNCH.md §0).
+  // Updates from 1.0 record the update time: those users installed before it. Never sent anywhere.
+  if (details.reason === 'install' || details.reason === 'update') {
+    chrome.storage.local.get('installedAt').then(({ installedAt }) => {
+      if (!installedAt) chrome.storage.local.set({ installedAt: Date.now(), installedVersion: details.reason === 'install' ? chrome.runtime.getManifest().version : `<=${details.previousVersion || '1.0.0'}` });
+    }).catch(() => {});
+  }
 });
 chrome.runtime.onStartup.addListener(() => scheduleMonitorTick());
 

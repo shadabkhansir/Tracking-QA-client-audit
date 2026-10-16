@@ -3,6 +3,15 @@
 _Written 2026-10-15. Decisions are final unless you change them: $19/month or $190/year (launch offer $15/$150 for the
 first 100 customers), 7-day free trial, "Changes since last audit" is Pro. The brand keeps "The Growth Folks®" (owner's decision)._
 
+## 0. Ending the free launch (read first)
+
+Version 1.1 ships with `allFree: true` in `src/license-config.js`: every feature is free for everyone and no upgrade prompts or Pro badges show. Going paid means:
+
+1. Set `allFree: false` **and** `enabled: true` (with the IDs below) in the same release. Bump the version.
+2. Update the store listing (add the Pro section, declare in-app purchases), `PRIVACY.md` (licence validation) and the website pricing page **in the same release**.
+3. **Be fair to launch users.** Taking features away is the main source of one-star reviews for free-to-paid extensions. Give 2–4 weeks' notice on the website and in the release notes. Consider leaving existing installs Pro for a period, or giving them a launch discount code. From v1.1 the extension stores `installedAt` and `installedVersion` locally (never sent), so a rule like "installed during the free launch → Pro until <date>" can be added in `src/plan.js` when going paid.
+4. Saved audits beyond the Free limit aren't deleted when the plan drops. Only new saves trim to 5, so nobody loses history on the day of the switch.
+
 ## 1. Dodo dashboard (you, after approval)
 
 Work in **test mode** first, then repeat in live mode (Dodo can copy products from test to live).

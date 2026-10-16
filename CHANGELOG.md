@@ -4,6 +4,8 @@
 
 **Renamed** to "Pixel & Tag Checker: GA4, GTM, Meta Audit – The Growth Folks®" (short name "Tag Checker"). Website slug is now `tag-checker`. Storage keys are unchanged, so existing audits, settings and branding carry over.
 
+**Free launch:** every feature is free for everyone (`allFree: true` in `src/license-config.js`). That covers white-label reports, 50-page scans, 500 saved audits, "changes since" and monitoring, with no upgrade prompts or Pro badges. Licensing stays off. The install date is now recorded locally (`installedAt`) so launch users can be grandfathered if paid plans start.
+
 **New**
 - **ChatGPT Ads (OpenAI) pixel**: platform 16.
   - Decodes `oaiq` beacon bodies (one hit per batched event) and image tags.

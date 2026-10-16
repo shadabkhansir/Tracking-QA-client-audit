@@ -60,7 +60,8 @@ not the full value.
 | Data | Where | How long |
 |---|---|---|
 | Live tracking requests and dataLayer pushes for each tab | `chrome.storage.session` (memory, never written to disk by Chrome) | Reset when the tab navigates (unless you turn on "Preserve log"), deleted when the tab closes, and gone when the browser quits |
-| Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names and metadata (no values) | `chrome.storage.local` on your device | Until you delete them in History. The Free plan keeps the last 5 (the planned Pro plan, 500) |
+| Install date and version (`installedAt`, `installedVersion`), used only to honour launch offers if paid plans start | `chrome.storage.local` on your device | Until you remove the extension |
+| Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names and metadata (no values) | `chrome.storage.local` on your device | Until you delete them in History. Up to the last 500 are kept |
 | Report notes and "Prepared for" text you type | `chrome.storage.local` | Stored with the audit |
 | Report branding you enter (agency name, contact line, colour, logo, call-to-action link) | `chrome.storage.local` | Until you change it or remove the extension |
 | Monitors you set up (URLs, schedule) and settings, including ID labels and custom providers | `chrome.storage.local` | Until you remove them |
@@ -85,7 +86,7 @@ the interface; they contain no audit data. Pages on thegrowthfolks.com are cover
 ## Optional permissions and actions you trigger
 
 - **Multi-page scans and monitoring** open the URLs you enter in background tabs and close them afterwards.
-  Scheduled monitoring (planned Pro feature; it asks for the optional alarms and notifications permissions) re-runs those scans in the background on the schedule you set and shows a desktop
+  Scheduled monitoring (it asks for the optional alarms and notifications permissions) re-runs those scans in the background on the schedule you set and shows a desktop
   notification when results change.
 - **Fresh visitor mode** asks for the optional `browsingData` permission and, only for the sites you are scanning,
   deletes their cookies, local storage, IndexedDB and service workers before the scan (you will be logged out of
@@ -99,6 +100,10 @@ Delete individual audits in the History tab, remove monitors in the Monitor tab,
 ## Children
 
 The extension is a professional tool for marketers and analysts and is not directed at children.
+
+## Chrome Web Store Limited Use
+
+The use of information received from Chrome APIs by Pixel & Tag Checker adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements. All data the extension reads stays in your browser and is used only to show you tracking-audit results; it is never sold, transferred, used for advertising or read by people.
 
 ## Changes
 
