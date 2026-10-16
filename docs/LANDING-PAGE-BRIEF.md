@@ -1,6 +1,8 @@
 # Landing page brief: Pixel & Tag Checker
 
 _For the session that builds thegrowthfolks.com. Source of truth for features and plans: this repository
+
+> **Superseded for v1.1:** use [`HANDOFF.md`](../HANDOFF.md) (slug `tag-checker`, new features, FAQs, screenshots). This brief keeps the older page-structure notes.
 (`shadabkhansir/tag-checker-client-audit`, branch `claude/charming-edison-ts8soj` until merged to `main`). Written 2026-10-15._
 
 ## 1. What to build

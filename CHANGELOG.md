@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-10-16): Pixel & Tag Checker
+
+**Renamed** to "Pixel & Tag Checker: GA4, GTM, Meta Audit – The Growth Folks®" (short name "Tag Checker"). Website slug is now `tag-checker`. Storage keys are unchanged, so existing audits, settings and branding carry over.
+
+**New**
+- **ChatGPT Ads (OpenAI) pixel**: platform 16.
+  - Decodes `oaiq` beacon bodies (one hit per batched event) and image tags.
+  - Checks standard event names and custom names, integer minor-unit amounts and currency, event IDs for deduplication, and `oppref` click-ID capture.
+  - Flags a Conversions API key exposed in page code, and unhashed user fields.
+  - SDK diagnostic pings are shown but not audited.
+- **Consent timeline by vendor**: in the panel and the report.
+  - Shows what each vendor sent before the cookie banner choice and after "Accept all"/"Reject all", with a verdict per vendor.
+  - Vendors covered: Google (`gcs`/`gcd`), Microsoft UET (`asc`, including a missing consent signal and a missing update), Meta, TikTok, LinkedIn, X, Pinterest, Snap, Reddit, Hotjar, ChatGPT Ads, and Clarity (cookieless mode).
+  - Supersedes the older all-vendor consent findings, so nothing is scored twice.
+- **Meta sensitive-data pre-check**: health, financial and identifier terms in page and referrer URLs, UTMs, custom event names and custom data, worded as "may trigger Meta data restrictions", with fixes.
+
+**Fixed**
+- Requests fired in the first milliseconds of a page load could be wiped by the navigation reset.
+- A pixel that only sends after the banner choice is no longer "loaded but sent no events".
+- Store screenshot script expanded the wrong rows.
+
+**Docs and tests**
+- Research: `docs/research/`, `docs/RESEARCH.md`. Spec and decisions: `docs/SPEC.md`, `docs/DECISIONS.md`.
+- Also added: `docs/PERMISSIONS.md`, `HANDOFF.md`, new store screenshots in `store/screenshots/`.
+- Tests: fixture payloads, 13 new unit tests (84 total), and a Playwright end-to-end test (`npm run test:e2e`).
+
+## Earlier unreleased work (included in 1.1.0)
 
 **The Growth Folks® design system**
 - Side panel, settings and client report now use only `brand/tokens.css` values (copied to `src/brand/tokens.css` for the package): forest green actions, warm off-white surfaces, flat 14px cards, pill buttons, Inter 400/600/800 bundled locally (no remote fonts), light and dark mode.

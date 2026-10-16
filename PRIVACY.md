@@ -1,6 +1,6 @@
 # Privacy Policy: Pixel & Tag Checker by The Growth Folks®
 
-_Last updated: 2026-10-15_
+_Last updated: 2026-10-16_
 
 Pixel & Tag Checker ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
 analytics and advertising tags on websites you choose to audit. Everything it does happens inside your own browser.
@@ -17,7 +17,8 @@ analytics and advertising tags on websites you choose to audit. Everything it do
 requests, the body) of requests made by your tabs. Each request is checked in memory against a fixed list of tracking
 endpoints: Google Analytics 4 (including server-side Google Tag Manager endpoints on a site's own domain), Google Tag
 Manager, the Google tag, Google Ads, Floodlight, Meta Pixel, TikTok Pixel, LinkedIn Insight Tag, Pinterest Tag, Snap
-Pixel, X (Twitter) Pixel, Microsoft Advertising UET, Reddit Pixel, Microsoft Clarity and Hotjar, the same payloads sent
+Pixel, X (Twitter) Pixel, Microsoft Advertising UET, Reddit Pixel, Microsoft Clarity, Hotjar and the ChatGPT Ads
+(OpenAI) pixel, the same payloads sent
 through a site's own domain (first-party proxies), and any custom endpoints you add in Settings. Requests that do not
 match are discarded immediately and never stored. For matching requests the extension keeps the platform, tag ID,
 event name, the request parameters, the request body (capped at 4,000 characters, for HAR export) and the HTTP status
@@ -46,6 +47,13 @@ and after.
 **Global Privacy Control test.** Only when you choose "GPC signal" as a consent test does the extension reload the page
 once with the `Sec-GPC: 1` header (a temporary declarativeNetRequest rule limited to that tab) and
 `navigator.globalPrivacyControl` set to true, then remove the rule. It changes nothing else about your requests.
+
+**Checks that run on what it already reads.** The consent timeline (which vendor sent data before or after your cookie
+banner choice), the ChatGPT Ads pixel checks (including whether the `oppref` click ID was captured, using the cookie
+**name** `__oppref`, never its value) and the Meta sensitive-data pre-check (which looks for sensitive words in the
+URLs, event names and custom data a page sends to Meta) all work on the requests and page setup described above. They
+need no extra permissions and send nothing anywhere. Saved audits record which sensitive **word** was found and where,
+not the full value.
 
 ## What it stores, and where
 
@@ -94,7 +102,7 @@ The extension is a professional tool for marketers and analysts and is not direc
 
 ## Changes
 
-If this policy changes, the new version will be published at https://thegrowthfolks.com/tools/tag-checker/privacy with
+If this policy changes, the new version will be published at https://thegrowthfolks.com/tools/tag-checker/privacy/ with
 a new "Last updated" date.
 
 ## Contact

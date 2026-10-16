@@ -1,22 +1,22 @@
 # Chrome Web Store listing: Pixel & Tag Checker by The Growth Folks®
 
 Copy-paste source for the Chrome Web Store Developer Dashboard. Everything below was checked against the code in
-this repo (manifest v1.0.0).
+this repo (manifest v1.1.0).
 
 ---
 
 ## Store listing tab
 
-**Name** (from manifest, 47 chars)
+**Name** (manifest `name`, 61/75 chars)
 
 ```
-Pixel & Tag Checker by The Growth Folks®
+Pixel & Tag Checker: GA4, GTM, Meta Audit – The Growth Folks®
 ```
 
-**Summary** (manifest `description`, 112/132 chars)
+**Summary** (manifest `description`, 125/132 chars)
 
 ```
-Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then send clients a polished report.
+Check GA4, GTM, Meta, TikTok and ChatGPT Ads pixels, see what fires before consent, and send clients a polished audit report.
 ```
 
 **Category:** Developer Tools (alternative: Productivity)
@@ -25,79 +25,74 @@ Audit GA4, GTM, Meta, TikTok and 11 more tags plus Consent Mode v2 and GPC, then
 
 **Detailed description**
 
-```
-Find broken tracking before your client does.
+Store policy (docs/research/RISKS.md B5, B6):
+- Name at most five supported platforms in the text; link the full list.
+- No competitor or platform names in the title.
+- Include the "not affiliated" line.
 
-Pixel & Tag Checker checks the analytics and ad tags on any web page, tests whether the cookie banner really controls them, and turns the result into a clean report you can send to a client. Open the side panel, click "Run audit", and get a 0–100 score with a prioritised list of fixes.
+```
+Is your Meta pixel firing? Is GA4 tracking purchases? Do your tags fire before visitors accept cookies? Pixel & Tag Checker answers all three in one click, then turns the result into a report you can send to a client.
+
+A free alternative to Meta Pixel Helper and Google Tag Assistant that checks every tag on the page at once, including tags deployed through Google Tag Manager, server-side tagging and Shopify custom pixels.
 
 WHAT IT CHECKS
-• Tags: Google Analytics 4 (including server-side GTM endpoints on your own domain), Google Tag Manager, the Google tag, Google Ads, Floodlight, Meta Pixel, TikTok Pixel, LinkedIn Insight Tag, Pinterest Tag, Snap Pixel, X (Twitter) Pixel, Microsoft Ads UET, Reddit Pixel, Microsoft Clarity and Hotjar.
-• Google Consent Mode v2: missing, v1-only or late defaults; whether "accept" actually updates consent; the default, update and current state of every signal.
-• Consent stress test: clicks "Accept all" or "Reject all" on the banner (OneTrust, Cookiebot, Usercentrics, Didomi, Complianz or a generic button) and compares what every platform sent before and after.
-• Global Privacy Control test: reloads the page with the browser's GPC opt-out signal on and checks whether ad tags still fire (required by several US state privacy laws).
-• Delivery: whether every tracking request was actually accepted by the vendor (HTTP status and timing), tag libraries that fail to load (e.g. a GTM 404), and hits blocked by an ad blocker in your browser.
-• Google Ads: conversion label, value, currency and order ID per conversion, and Enhanced Conversions user data (present, hashed or leaking in clear text).
-• Shopify: events from Customer Events custom pixels, and the common bug where they report Shopify's sandbox URL instead of the real page.
-• Placement and order: GTM snippet or Meta base code outside <head>, events sent before the Google tag is configured, dataLayer pushes without an event, several conversions firing on one page load.
-• Pixel health: invalid Meta or TikTok pixel IDs, empty or wrong-case TikTok events, missing TikTok first-party cookie, Meta automatic events.
-• Cookies: every first-party cookie on the page with vendor, purpose and expiry (names only, never values).
-• First-party and proxied tags (Google Tag Gateway, server-side GTM, pixel proxies) are detected, and you can add your own custom providers.
-• Pixels, cookies or session recorders that run while consent is denied.
-• Ecommerce: purchases missing transaction_id, value, currency or items; duplicate purchases; purchase values that differ between GA4, Meta and TikTok.
-• Meta and TikTok event rules: wrong-case standard events, missing content IDs, missing event_id for Conversions API deduplication, malformed advanced matching.
-• dataLayer problems: overwritten dataLayer, ecommerce object not cleared between pushes.
-• Personal data (such as email addresses) leaking into tracking payloads.
+• Tags found on this page: Google Analytics 4, Google Tag Manager, Meta, TikTok, ChatGPT Ads and 11 more ad and analytics platforms (full list on our website). Firing, not firing, firing twice, or blocked by an ad blocker, with the HTTP status of every request.
+• Consent timeline: what each vendor sent before the cookie banner choice and after "Accept all" or "Reject all", with a pass or fail per vendor. Reads Google Consent Mode v2 and Microsoft Ads consent signals; flags tags that fire before consent or after reject.
+• Cookie banner test: clicks "Accept all" or "Reject all" on major consent platforms for you and compares before and after.
+• Global Privacy Control (GPC) test for US privacy laws.
+• ChatGPT Ads pixel: decodes events, amounts and the oppref click ID, checks the click ID is captured, and warns if a Conversions API key is exposed in page code.
+• Meta data restrictions pre-check: health and other sensitive words in URLs, UTMs, custom events and custom data that may get your events restricted, with the fix.
+• Purchase events: value, currency, order ID and items; duplicate purchases; values that differ between platforms; event IDs for server-side deduplication.
+• Personal data (email, phone) sent to ad platforms, and unhashed user data.
+• Cookies set on the page, by vendor and purpose (names only, never values).
 
 TOOLS FOR THE JOB
-• Request inspector: every tracking hit with readable parameter names, parsed GA4 items, consent strings and delivery status. Filter, search, and export to CSV, JSON or HAR.
-• Label IDs ("G-ABC123 = Main property") so panels and reports read like your client's setup.
-• dataLayer timeline: every push in order from the first line of the page, even before GTM loads.
-• Funnel mode: preserve the log across pages and audit a whole journey (product → cart → checkout → thank-you).
-• Multi-page scan: audit a list of URLs in background tabs as a first-time visitor, with a coverage check that spots templates missing tags the rest of the site has.
-• Import an audit someone exported to view their report.
-• Pop-out window pinned to one tab.
+• Request inspector with readable parameter names, filters, search and CSV, JSON or HAR export.
+• dataLayer timeline from the first line of the page.
+• Funnel mode across pages (product → cart → checkout → thank-you).
+• Multi-page scan with a coverage check for templates missing tags.
 
-CLIENT-READY REPORTS
-• Executive summary, score, findings with "how to fix", consent results and changes since the last audit.
-• Editable analyst notes and "Prepared for" line.
-• Print to PDF, or export CSV, JSON or a plain-text summary for email and Slack.
+CLIENT REPORT
+Score, plain-English fixes, the consent timeline by vendor and changes since the last audit. Download as PDF.
 
-WHO IT'S FOR
-Agencies, freelance analysts, in-house marketers and developers who set up or maintain GA4, GTM and ad pixels and need to prove tracking and consent work.
-
-FREE VERSION
-Every check, the inspectors, consent and GPC tests, funnel audits and exports are free. Multi-page scans cover up to 3 pages at a time, the last 5 audits are kept, and reports carry a small credit line. A Pro plan with white-label reports, larger scans and monitoring is planned.
+FREE
+Every check, the consent and GPC tests, the inspectors and exports. Scans cover 3 pages at a time, the last 5 audits are kept, and reports carry a small credit line. A Pro plan with white-label reports, larger scans and monitoring is coming.
 
 PRIVACY
-Everything runs in your browser. The extension has no server, no analytics and no third-party code, and it sends no data anywhere. Saved audits stay in your browser's extension storage until you delete them. Full policy: https://thegrowthfolks.com/tools/tag-checker/privacy
+Everything runs in your browser. No account, no server, no analytics: nothing you audit is sent anywhere. Policy: https://thegrowthfolks.com/tools/tag-checker/privacy/
 
-Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker
+Not affiliated with or endorsed by Google, Meta, TikTok, Microsoft or OpenAI. Product names are used only to describe compatibility.
+
+Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker/
 ```
 
-> Note before publishing: the Free/Pro split in `src/plan.js` has no payment flow yet (Pro can only be switched on
-> for unpacked developer installs). The description above deliberately does not mention Pro, custom report branding,
-> 50-page scans or scheduled monitoring, because store users cannot get them yet. Add them back once payments work.
+> Before publishing:
+> - Keep Pro features worded as "coming" until payments work (docs/PRO-LAUNCH.md).
+> - Re-check the ChatGPT Ads facts against https://developers.openai.com/ads (last checked 2026-10-16).
 
-**Graphics** (in this folder; regenerate with `node store/make-graphics.mjs`)
+**Graphics** (regenerate with `node store/make-graphics.mjs`)
+
+The store allows 5 screenshots. Use 1–5; screenshot 6 is for the website.
 
 | Slot | File |
 |---|---|
 | Store icon 128×128 | `../icons/icon128.png` |
 | Small promo tile 440×280 | `promo-small-440x280.png` |
 | Marquee 1400×560 (optional) | `marquee-1400x560.png` |
-| Screenshot 1: one-click audit | `screenshot-1-1280x800.png` |
-| Screenshot 2: consent stress test | `screenshot-2-1280x800.png` |
-| Screenshot 3: request inspector | `screenshot-3-1280x800.png` |
-| Screenshot 4: dataLayer timeline | `screenshot-4-1280x800.png` |
-| Screenshot 5: client report | `screenshot-5-1280x800.png` |
+| Screenshot 1: consent timeline | `screenshots/screenshot-1-1280x800.png` |
+| Screenshot 2: ChatGPT Ads pixel | `screenshots/screenshot-2-1280x800.png` |
+| Screenshot 3: Meta data restrictions pre-check | `screenshots/screenshot-3-1280x800.png` |
+| Screenshot 4: one-click audit | `screenshots/screenshot-4-1280x800.png` |
+| Screenshot 5: client report | `screenshots/screenshot-5-1280x800.png` |
+| (website) dataLayer timeline | `screenshots/screenshot-6-1280x800.png` |
 
-Screenshots show the real extension UI rendered with sample data for a fictional store (shop.example.com).
+Screenshots show the real extension UI with sample data for fictional sites (shop.example.com, wellness.example.com).
 
 **URLs**
 
-- Official URL / homepage: `https://thegrowthfolks.com/tools/tag-checker`
-- Support URL: `https://thegrowthfolks.com/tools/tag-checker` (support email: team@thegrowthfolks.com)
-- Privacy policy URL: `https://thegrowthfolks.com/tools/tag-checker/privacy` (source text: `../PRIVACY.md`)
+- Official URL / homepage: `https://thegrowthfolks.com/tools/tag-checker/`
+- Support URL: `https://thegrowthfolks.com/tools/tag-checker/` (support email: team@thegrowthfolks.com)
+- Privacy policy URL: `https://thegrowthfolks.com/tools/tag-checker/privacy/` (source text: `../PRIVACY.md`)
 
 ---
 
@@ -106,7 +101,7 @@ Screenshots show the real extension UI rendered with sample data for a fictional
 ### Single purpose
 
 ```
-Pixel & Tag Checker has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known tracking platforms (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar), reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
+Pixel & Tag Checker has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known tracking platforms (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar, ChatGPT Ads), reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
 ```
 
 ### Permission justifications
@@ -228,8 +223,8 @@ No account or login is needed.
 2. Click the toolbar icon. The side panel opens.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
-5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
+5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after, plus a "Consent timeline" card with a verdict per vendor. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
 6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding is shown there but locked until the planned Pro plan launches.
 
-Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding belong to a planned Pro plan that is not purchasable yet; the UI labels them "coming soon". The alarms and notifications permissions are optional and only requested when monitoring is enabled.
+Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. The ChatGPT Ads, consent timeline and Meta sensitive-data checks work on the same locally observed requests; they added no permissions. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding belong to a planned Pro plan that is not purchasable yet; the UI labels them "coming soon". The alarms and notifications permissions are optional and only requested when monitoring is enabled.
 ```

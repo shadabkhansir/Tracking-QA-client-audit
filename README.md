@@ -1,18 +1,22 @@
 # Pixel & Tag Checker by The Growth Folks®
 
-Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity and Hotjar tags plus Google Consent Mode v2 on any page, then turns the result into a branded client report.
+Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar and ChatGPT Ads (OpenAI) tags, shows what each vendor sends before and after the cookie banner choice, and turns the result into a branded client report.
 
-- Landing page: https://thegrowthfolks.com/tools/tag-checker
-- Privacy policy: https://thegrowthfolks.com/tools/tag-checker/privacy (source: [`PRIVACY.md`](PRIVACY.md))
+- Landing page: https://thegrowthfolks.com/tools/tag-checker/
+- Privacy policy: https://thegrowthfolks.com/tools/tag-checker/privacy/ (source: [`PRIVACY.md`](PRIVACY.md))
 - Support: team@thegrowthfolks.com
 - Chrome Web Store listing copy, permission justifications and graphics: [`store/`](store/)
-- Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md)
+- Research, spec and decisions: [`docs/RESEARCH.md`](docs/RESEARCH.md), [`docs/SPEC.md`](docs/SPEC.md), [`docs/DECISIONS.md`](docs/DECISIONS.md), details in [`docs/research/`](docs/research/)
+- Permissions and why: [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) · Website hand-off: [`HANDOFF.md`](HANDOFF.md)
 
 The old GitHub Pages site (`gh-pages` branch) now only redirects to the landing page.
 
 ## What it does
 
 - **Audit tab**: one-click audit with a 0–100 score, the platforms detected, Consent Mode state, and fixes for each finding.
+- **Consent timeline**: per vendor, what was sent before the cookie banner choice and after "Accept all"/"Reject all", with a verdict (Google Consent Mode `gcs`/`gcd`, Microsoft UET `asc`, timing for every other vendor; Clarity cookieless mode recognised).
+- **ChatGPT Ads (OpenAI) pixel**: decodes `oaiq` beacon bodies and image tags, checks standard event names, integer minor-unit amounts, currency, event IDs and `oppref` click-ID capture, and flags a Conversions API key exposed in page code.
+- **Meta sensitive-data pre-check**: health, financial and identifier terms in URLs, UTMs, custom event names and custom data that may trigger Meta data restrictions.
 - **Consent stress test**: clicks "Accept all" or "Reject all" on the banner (OneTrust, Cookiebot, Usercentrics, Didomi, Complianz, or a generic button) and compares tag behaviour before and after.
 - **Requests tab**:
   - every tracking hit with decoded parameter names and GA4 item strings parsed
@@ -106,6 +110,7 @@ Full plan and launch guide: [`docs/PLANS.md`](docs/PLANS.md); payments and licen
 
 ```bash
 npm test          # unit tests for detectors + rules (node:test, no deps)
+npm run test:e2e  # Playwright end-to-end test with the unpacked extension (Chromium at /opt/pw-browsers/chromium or CHROMIUM_PATH)
 npm run zip       # dist.zip for the Chrome Web Store (gitignored)
 node store/make-graphics.mjs   # regenerate store screenshots and promo tiles (needs Playwright + Chromium)
 ```
@@ -117,19 +122,22 @@ Load it: `chrome://extensions` → Developer mode → *Load unpacked* → select
 ```
 manifest.json
 src/background.js   service worker: webRequest capture, per-tab state, audits, consent test, scans, monitors
-src/detectors.js    URL/body → hits for 15 platforms, gcs/gcd parsing
+src/detectors.js    URL/body → hits for 16 platforms (incl. ChatGPT Ads beacon bodies), gcs/gcd parsing
+src/consent-timeline.js  per-vendor before/after-choice timeline and verdicts
 src/params.js       readable parameter names, GA4 item parsing, ecommerce normalisation
 src/page-probe.js   MAIN-world probe (dataLayer, consent state, pixels, CMPs, cookie names) + accept/reject banner
 src/content/        dataLayer hook (MAIN world, document_start) + relay (isolated world)
 src/checks.js       core rules, consent test findings, scoring, multi-page aggregation
-src/validators.js   ecommerce, naming, dedup, dataLayer, cookies, cross-platform, delivery, Google Ads/EC, placement, pixel health, Shopify rules
+src/validators.js   ecommerce, naming, dedup, dataLayer, cookies, cross-platform, delivery, Google Ads/EC, placement, pixel health, Shopify, ChatGPT Ads and Meta sensitive-data rules
 src/cookies.js      cookie vendor/purpose classification
 src/diff.js         before/after comparison between audits
 src/export.js       CSV / summary exports
 src/storage.js      history, branding, settings, monitors
 src/plan.js         free/pro limits
 src/brand.js        The Growth Folks® links (UTM-tagged) for the panel, options and report
-docs/               competitive analysis
+src/brand/          TGF design tokens + bundled Inter (copied from brand/)
+docs/               research (docs/research/), spec, decisions, permissions, plans, licensing
+test/               unit tests + fixtures; test/e2e/ Playwright end-to-end test and fixture site
 store/              Web Store listing copy, graphics and the script that generates them
 sidepanel/          live UI
 report/             printable client report
@@ -138,6 +146,8 @@ options/            branding + plan
 
 ## Known limits
 
-- Server-side tracking (Meta CAPI, GA4 Measurement Protocol) can't be seen from the browser. The report says so.
+- Server-side tracking (Meta CAPI, GA4 Measurement Protocol, OpenAI Conversions API) can't be seen from the browser. The report says so; the ChatGPT Ads check verifies `oppref` capture, not server forwarding.
+- Vendors other than Google and Microsoft UET put no consent value on the wire, so the consent timeline judges them by timing against the banner choice. Without a banner test, a returning visitor's stored choice can't be distinguished, so those rows say "Run banner test" instead of failing.
+- The Meta sensitive-data check is a pre-check on what the browser sends; it can't see whether Meta has restricted the dataset.
 - The `gcd` letter mapping is reverse-engineered by the community, not documented by Google. Unknown letters show up as `unknown` instead of being guessed.
 - `<all_urls>` + `webRequest` puts the extension into the Chrome Web Store's in-depth review. Plan for a slower first review and a privacy policy (see `PRIVACY.md`).

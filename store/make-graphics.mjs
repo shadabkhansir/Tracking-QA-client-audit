@@ -299,8 +299,8 @@ const screens = [
   { shot: shots.chatgpt, shotWidth: panelW, eyebrow: 'ChatGPT Ads pixel', headline: 'Check the <em>ChatGPT Ads</em> pixel', sub: 'Decodes OpenAI pixel events, amounts and the oppref click ID, and catches a Conversions API key exposed in page code.', bullets: ['Standard and custom event names', 'Amounts in minor units, currency, event ID', 'Click ID captured for attribution'] },
   { shot: shots.meta, shotWidth: panelW, eyebrow: 'Meta data restrictions', headline: 'Catch words Meta <em>may block</em>', sub: 'Health and other sensitive terms in URLs, UTMs, custom events and custom data, with the fix, before Meta restricts your events.' },
   { shot: shots.audit, shotWidth: panelW, eyebrow: 'One-click tracking audit', headline: 'Find broken tracking <em>before your client does</em>', sub: 'Score any page 0–100 and get a prioritised list of fixes.', bullets: ['GA4, GTM, Google Ads, Meta, TikTok and 10 more tags plus delivery status', 'Consent Mode v2 defaults, updates and CMP detection', 'Ecommerce, deduplication and PII checks'] },
-  { shot: shots.datalayer, shotWidth: panelW, eyebrow: 'dataLayer timeline', headline: 'Every dataLayer push, <em>in order</em>', sub: 'Captured from the first line of the page, even pushes made before GTM loads. Overwrites are flagged.' },
   { shot: shots.reportTimeline, shotWidth: 640, eyebrow: 'Client-ready reports', headline: 'Send a <em>client-ready</em> report', sub: 'Executive summary, fixes, the consent timeline by vendor and changes since the last audit. Print to PDF or export CSV.' },
+  { shot: shots.datalayer, shotWidth: panelW, eyebrow: 'dataLayer timeline', headline: 'Every dataLayer push, <em>in order</em>', sub: 'Captured from the first line of the page, even pushes made before GTM loads. Overwrites are flagged.' },
 ];
 
 for (let i = 0; i < screens.length; i++) {
