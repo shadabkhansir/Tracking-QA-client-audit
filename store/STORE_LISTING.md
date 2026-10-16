@@ -102,7 +102,7 @@ Screenshots show the real extension UI with sample data for fictional sites (sho
 ### Single purpose
 
 ```
-Pixel & Tag Checker has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known tracking platforms (Google Analytics, Google Tag Manager, Google Ads, Meta, TikTok, LinkedIn, Pinterest, Snap, X, Microsoft Ads, Reddit, Clarity, Hotjar, ChatGPT Ads), reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
+Pixel & Tag Checker has one purpose: auditing the analytics and advertising tags on web pages the user chooses to check. It observes the requests a page sends to known analytics and advertising platforms, reads the page's tag and consent configuration, optionally tests the page's cookie banner, and presents the findings in a side panel and in a report the user can print or export for their client.
 ```
 
 ### Permission justifications
