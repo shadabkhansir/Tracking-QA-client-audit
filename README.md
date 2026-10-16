@@ -4,7 +4,7 @@ Chrome extension (Manifest V3) that checks GA4, GTM, Google Ads, Meta, TikTok, L
 
 - Landing page: https://thegrowthfolks.com/tools/tracking-qa
 - Privacy policy: https://thegrowthfolks.com/tools/tracking-qa/privacy (source: [`PRIVACY.md`](PRIVACY.md))
-- Support: hello@thegrowthfolks.com
+- Support: team@thegrowthfolks.com
 - Chrome Web Store listing copy, permission justifications and graphics: [`store/`](store/)
 - Competitor research: [`docs/competitive-analysis.md`](docs/competitive-analysis.md)
 

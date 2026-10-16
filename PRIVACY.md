@@ -99,4 +99,4 @@ a new "Last updated" date.
 
 ## Contact
 
-The Growth Folks® · hello@thegrowthfolks.com
+The Growth Folks® · team@thegrowthfolks.com

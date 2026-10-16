@@ -8,10 +8,17 @@ import { getSettings } from '../src/storage.js';
 import { wireTgfLinks, LINKS, TGF } from '../src/brand.js';
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SEV_LABEL = { critical: 'Critical', warning: 'Warning', info: 'Note', pass: 'Pass' };
+// Status is always icon + word + colour (brand GUIDELINES §4).
+const SEV_LABEL = { critical: '✕ Critical', warning: '! Warning', info: 'i Note', pass: '✓ Pass' };
 
 function scoreColor(score) {
-  return score >= 85 ? 'var(--pass)' : score >= 60 ? 'var(--warning)' : 'var(--critical)';
+  return score >= 85 ? 'var(--brand)' : score >= 60 ? 'var(--accent)' : 'var(--danger)';
+}
+
+// White or ink text on an agency colour, whichever is more readable (WCAG relative luminance).
+function readableOn(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? 'var(--ink)' : 'var(--brand-ink)';
 }
 
 function grade(score) {
@@ -122,8 +129,13 @@ async function render() {
 
   const plan = await getPlan();
   const savedBrand = await getBrand();
-  const brand = LIMITS[plan].customBranding ? savedBrand : { ...savedBrand, logoDataUrl: '', agencyName: '', brandColor: '#2f5bea' };
-  document.documentElement.style.setProperty('--brand', brand.brandColor || '#2f5bea');
+  // Free: TGF green and mark. Pro: the agency's logo and one colour (accents only; status colours stay ours).
+  const pro = LIMITS[plan].customBranding;
+  const brand = pro ? savedBrand : { ...savedBrand, logoDataUrl: '', agencyName: '', brandColor: '' };
+  if (pro && /^#[0-9a-f]{6}$/i.test(brand.brandColor || '')) {
+    document.documentElement.style.setProperty('--report-accent', brand.brandColor);
+    document.documentElement.style.setProperty('--report-accent-ink', readableOn(brand.brandColor));
+  }
   const { showCredit, idLabels: labels } = await getSettings();
   idLabels = labels || {};
 
@@ -138,7 +150,7 @@ async function render() {
 
   el.innerHTML = `
     <div class="head">
-      <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="">` : `<div class="agency">${esc(brand.agencyName || 'Tracking QA')}</div>`}</div>
+      <div>${brand.logoDataUrl ? `<img src="${esc(brand.logoDataUrl)}" alt="${esc(brand.agencyName || 'Agency logo')}">` : brand.agencyName ? `<div class="agency">${esc(brand.agencyName)}</div>` : '<div class="agency"><span class="tgf-logo" aria-hidden="true">TGF</span>Tracking QA</div>'}</div>
       <div class="meta"><span class="prep${(audit.preparedFor ?? brand.preparedFor) ? '' : ' empty'}">Prepared for <span id="prepared-for" contenteditable="true" data-placeholder="Client name">${esc(audit.preparedFor ?? brand.preparedFor ?? '')}</span><br></span>${esc(date)}</div>
     </div>
     <h1>Tracking &amp; Consent Audit</h1>

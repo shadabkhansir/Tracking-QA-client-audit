@@ -186,6 +186,9 @@ function signalClass(v) {
   return v === 'granted' ? 'pass' : v === 'denied' ? 'warning' : 'info';
 }
 
+// Status is always icon + word + colour (brand GUIDELINES §4), never colour alone.
+const SEV_TAG = { critical: '✕ Critical', warning: '! Warning', info: 'i Note', pass: '✓ Pass' };
+
 function renderResult(r) {
   lastResult = r;
   $('audit-result').hidden = false;
@@ -222,11 +225,11 @@ function renderResult(r) {
   }
 
   $('findings').innerHTML = r.findings.map(f => `
-    <li class="${f.severity}"><div class="t">${esc(f.title)}</div>
+    <li class="${f.severity}"><div class="t"><span class="sev ${f.severity}">${SEV_TAG[f.severity] || ''}</span>${esc(f.title)}</div>
       ${f.detail ? `<div class="d">${esc(f.detail)}</div>` : ''}
       ${f.fix ? `<div class="f">Fix: ${esc(f.fix)}</div>` : ''}</li>`).join('');
   if (!r.injectable) {
-    $('findings').insertAdjacentHTML('afterbegin', '<li class="info"><div class="t">Page internals not readable</div><div class="d">Chrome blocks extensions on this page type, so only network requests were checked.</div></li>');
+    $('findings').insertAdjacentHTML('afterbegin', `<li class="info"><div class="t"><span class="sev info">${SEV_TAG.info}</span>Page internals not readable</div><div class="d">Chrome blocks extensions on this page type, so only network requests were checked.</div></li>`);
   }
 }
 

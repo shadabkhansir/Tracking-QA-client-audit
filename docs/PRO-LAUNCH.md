@@ -10,7 +10,7 @@ Work in **test mode** first, then repeat in live mode (Dodo can copy products fr
 - **Settings → Business → Brands → primary brand → Edit**
   - Brand Name: `The Growth Folks`
   - Logo
-  - Support email: `hello@thegrowthfolks.com`
+  - Support email: `team@thegrowthfolks.com`
   - Statement descriptor: e.g. `GROWTHFOLKS`, so the card line reads `DODOPAY_GROWTHFOLKS`
 - **Settings → Design → Business Name**: `The Growth Folks`.
 - **Settings → Subscriptions → Prevent Trial Misuse**: on, so one email gets one trial.
@@ -52,7 +52,7 @@ Test in test mode with a test card: buy, receive the key, activate, see Pro, rev
 - **The licence key is the account.** It's in the purchase email and in Dodo's Customer Portal, where customers sign in by email.
 - **Reinstalling:** paste the key again in Settings to bring Pro back.
 - **Uninstalling doesn't free the activation**, because Chrome gives the extension no chance to run code on uninstall. That's why the limit is 5, not 3.
-- **When the limit is hit,** the extension tells the buyer to email `hello@thegrowthfolks.com`. You then reset the key from Dodo's dashboard: **Sales → License Keys**.
+- **When the limit is hit,** the extension tells the buyer to email `team@thegrowthfolks.com`. You then reset the key from Dodo's dashboard: **Sales → License Keys**.
 
 ## 4. Privacy policy addition (publish on thegrowthfolks.com and in PRIVACY.md when Pro goes live)
 

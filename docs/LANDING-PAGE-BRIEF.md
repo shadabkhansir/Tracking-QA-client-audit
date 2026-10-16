@@ -153,7 +153,7 @@ Planned later (mention only as "coming later", or leave out): an **Agency** plan
 - **Does it work on Shopify?** Yes, including custom pixels in Shopify's sandbox.
 - **Which consent platforms does the banner test support?** OneTrust, Cookiebot, Usercentrics, Didomi, Complianz and many others by button. It falls back to clicking buttons inside cookie banners.
 - **Does monitoring need Chrome open?** Yes. Cloud monitoring is planned for a later Agency plan.
-- **I reinstalled and my key says "activation limit"?** Email hello@thegrowthfolks.com with the key and we'll reset it.
+- **I reinstalled and my key says "activation limit"?** Email team@thegrowthfolks.com with the key and we'll reset it.
 - **Which browsers?** Google Chrome on desktop. Other Chromium browsers may work but aren't officially supported yet. Firefox and Safari aren't supported.
 
 ## 4. SEO
@@ -195,6 +195,8 @@ Planned later (mention only as "coming later", or leave out): an **Agency** plan
   - `docs/competitive-analysis.md`
 
 ## 6. Rules
+
+- **Design:** follow the TGF brand kit (`tgf-design-system` skill, `brand/tokens.css`) exactly as the extension now does. Contact email: team@thegrowthfolks.com.
 
 - **No fabricated social proof.** No fake testimonials, user counts, ratings, "trusted by" logos or "#1" claims. Leave a hidden slot for real reviews later.
 - **Comparisons must be factual and current**, from `docs/competitive-analysis.md`. Don't mock competitors.

@@ -123,35 +123,42 @@ function chromeStub({ storage, tabState, auditResult, tabUrl }) {
 }
 
 // ---- Composition --------------------------------------------------------------------------
-const C = { green: '#1f6b4f', ink: '#16181d', paper: '#fbfaf7', accent: '#f2a541' };
-const FONT = "Inter, 'Segoe UI', system-ui, -apple-system, sans-serif";
+// Values from src/brand/tokens.css (The Growth Folks® design system).
+const C = { green: '#1f6b4f', ink: '#16181d', inkSoft: '#4a4f5a', paper: '#fbfaf7', line: '#e6e3dc', white: '#ffffff' };
+const FONT = "Inter, 'Inter Fallback', system-ui, -apple-system, 'Segoe UI', sans-serif";
+// The bundled Inter files, inlined so the canvases render with the brand font (setContent pages can't fetch cross-origin fonts).
+const FONT_FACES = (await Promise.all([400, 600, 800].map(async w => {
+  const b64 = (await readFile(path.join(root, `src/brand/fonts/inter-${w}.woff2`))).toString('base64');
+  return `@font-face { font-family: 'Inter'; font-weight: ${w}; src: url(data:font/woff2;base64,${b64}) format('woff2'); }`;
+}))).join('\n');
 const dataUrl = buf => `data:image/png;base64,${buf.toString('base64')}`;
 
-const mark = (size = 15, color = C.ink) => `<div style="font:600 ${size}px/1.2 ${FONT};color:${color};letter-spacing:-.01em">
-  <span style="display:inline-block;width:${size * 0.62}px;height:${size * 0.62}px;border-radius:50%;background:${C.accent};margin-right:8px;vertical-align:1px"></span>The Growth Folks®</div>`;
+// TGF logo lock-up: green rounded square (radius ≈ 28%) with white "TGF", then the word mark. Inverted on green.
+const mark = (size = 15, inverted = false) => `<div style="display:flex;align-items:center;gap:${Math.round(size * 0.6)}px;font:800 ${size}px/1 ${FONT};color:${inverted ? C.white : C.ink};letter-spacing:-.01em">
+  <span style="display:inline-grid;place-items:center;width:${Math.round(size * 2)}px;height:${Math.round(size * 2)}px;border-radius:${Math.round(size * 0.56)}px;background:${inverted ? C.white : C.green};color:${inverted ? C.green : C.white};font-size:${Math.round(size * 0.68)}px">TGF</span>The Growth Folks®</div>`;
 
 function canvasHtml({ eyebrow, headline, sub, shot, shotWidth, bullets = [] }) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>
+    ${FONT_FACES}
     * { box-sizing: border-box; margin: 0; }
     body { width: 1280px; height: 800px; overflow: hidden; background: ${C.paper}; font-family: ${FONT}; color: ${C.ink}; position: relative; }
     .band { position: absolute; right: 0; top: 0; bottom: 0; width: 560px; background: ${C.green}; }
-    .dots { position: absolute; right: 0; top: 0; bottom: 0; width: 560px; background-image: radial-gradient(rgba(255,255,255,.09) 1.5px, transparent 1.5px); background-size: 22px 22px; }
     .copy { position: absolute; left: 72px; top: 0; bottom: 0; width: ${Math.min(540, 1280 - 70 - shotWidth - 72 - 56)}px; display: flex; flex-direction: column; justify-content: center; }
-    .eyebrow { font-size: 15px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: ${C.green}; margin-bottom: 18px; }
-    h1 { font-size: ${shotWidth > 500 ? 44 : 50}px; line-height: 1.06; letter-spacing: -.025em; font-weight: 750; }
+    .eyebrow { font-size: 15px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: ${C.green}; margin-bottom: 18px; }
+    h1 { font-size: ${shotWidth > 500 ? 44 : 50}px; line-height: 1.06; letter-spacing: -.02em; font-weight: 800; }
     h1 em { font-style: normal; color: ${C.green}; }
-    .sub { font-size: 20px; line-height: 1.5; color: #4a4f59; margin-top: 22px; }
+    .sub { font-size: 20px; line-height: 1.5; color: ${C.inkSoft}; margin-top: 22px; }
     ul { list-style: none; padding: 0; margin-top: 26px; }
-    li { font-size: 17px; line-height: 1.4; margin: 10px 0; padding-left: 30px; position: relative; color: #2b2f36; }
-    li::before { content: ''; position: absolute; left: 0; top: 6px; width: 14px; height: 14px; border-radius: 4px; background: ${C.accent}; }
+    li { font-size: 17px; line-height: 1.4; margin: 10px 0; padding-left: 30px; position: relative; color: ${C.ink}; }
+    li::before { content: '✓'; position: absolute; left: 0; top: 0; color: ${C.green}; font-weight: 800; }
     .foot { position: absolute; left: 72px; bottom: 44px; }
     .shot { position: absolute; top: 50%; right: 70px; transform: translateY(-50%); width: ${shotWidth}px; border-radius: 14px; overflow: hidden;
       box-shadow: 0 30px 70px rgba(10,30,22,.35), 0 0 0 1px rgba(0,0,0,.08); background: #fff; }
     .shot img { display: block; width: 100%; }
-    .shot .bar { height: 30px; background: #eef0f2; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-bottom: 1px solid #e1e4e8; }
-    .shot .bar i { width: 10px; height: 10px; border-radius: 50%; background: #cfd3d8; display: block; }
+    .shot .bar { height: 30px; background: ${C.paper}; display: flex; align-items: center; gap: 7px; padding: 0 12px; border-bottom: 1px solid ${C.line}; }
+    .shot .bar i { width: 10px; height: 10px; border-radius: 50%; background: ${C.line}; display: block; }
   </style></head><body>
-    <div class="band"></div><div class="dots"></div>
+    <div class="band"></div>
     <div class="copy">
       <div class="eyebrow">${eyebrow}</div>
       <h1>${headline}</h1>
@@ -166,24 +173,23 @@ function canvasHtml({ eyebrow, headline, sub, shot, shotWidth, bullets = [] }) {
 function promoHtml({ w, h, big }) {
   const s = big ? 1 : 0.42;
   return `<!doctype html><html><head><meta charset="utf-8"><style>
+    ${FONT_FACES}
     * { box-sizing: border-box; margin: 0; }
     body { width: ${w}px; height: ${h}px; overflow: hidden; background: ${C.green}; font-family: ${FONT}; color: #fff; position: relative; }
-    .dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.08) ${2 * s + 0.6}px, transparent ${2 * s + 0.6}px); background-size: ${Math.round(26 * s + 8)}px ${Math.round(26 * s + 8)}px; }
     .wrap { position: absolute; left: ${Math.round(80 * s + 14)}px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; width: ${big ? 720 : 300}px; }
-    .icon { width: ${Math.round(84 * s + 18)}px; height: ${Math.round(84 * s + 18)}px; border-radius: ${Math.round(18 * s + 5)}px; background: #fff; display: grid; place-items: center; margin-bottom: ${Math.round(26 * s + 6)}px; }
+    .icon { width: ${Math.round(84 * s + 18)}px; height: ${Math.round(84 * s + 18)}px; border-radius: ${Math.round(18 * s + 5)}px; background: ${C.white}; display: grid; place-items: center; margin-bottom: ${Math.round(26 * s + 6)}px; }
     .icon img { width: 72%; }
-    h1 { font-size: ${big ? 64 : 30}px; line-height: 1.04; letter-spacing: -.025em; font-weight: 760; }
+    h1 { font-size: ${big ? 64 : 30}px; line-height: 1.04; letter-spacing: -.02em; font-weight: 800; }
     p { font-size: ${big ? 24 : 13}px; line-height: 1.4; margin-top: ${big ? 18 : 8}px; color: rgba(255,255,255,.86); }
     .by { margin-top: ${big ? 30 : 14}px; font-size: ${big ? 18 : 11}px; font-weight: 600; color: #fff; }
-    .by i { display: inline-block; width: ${big ? 11 : 7}px; height: ${big ? 11 : 7}px; border-radius: 50%; background: ${C.accent}; margin-right: 7px; }
     .card { position: absolute; right: 70px; top: 50%; transform: translateY(-50%) rotate(-2deg); width: 470px; border-radius: 14px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.35); background: #fff; }
     .card img { display: block; width: 100%; }
-  </style></head><body><div class="dots"></div>
+  </style></head><body>
     <div class="wrap">
       <div class="icon"><img src="ICON"></div>
       <h1>Tracking QA &amp;<br>Client Audit</h1>
       <p>${big ? 'Audit GA4, GTM, Meta, TikTok and Consent Mode v2 in one click, then send a branded client report.' : 'Tag &amp; Consent Mode audits with branded client reports.'}</p>
-      <div class="by"><i></i>by The Growth Folks®</div>
+      <div class="by">${mark(big ? 18 : 10, true)}</div>
     </div>
     ${big ? '<div class="card"><img src="SHOT"></div>' : ''}
   </body></html>`;

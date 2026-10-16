@@ -36,7 +36,7 @@ export async function deleteAudit(id) {
 
 export const DEFAULT_BRAND = {
   agencyName: '',
-  brandColor: '#2f5bea',
+  brandColor: '#1f6b4f', // TGF --brand: default for the Pro colour picker
   logoDataUrl: '',
   contact: '',
   preparedFor: '',

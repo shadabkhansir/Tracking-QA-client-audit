@@ -22,7 +22,7 @@ export const LICENSE_CONFIG = {
   checkoutUrl: 'https://thegrowthfolks.com/tools/tracking-qa/pricing',
   checkoutUrls: {},
   // Shown when a key hits its activation limit (e.g. after reinstalling), so the buyer can ask for a reset.
-  supportEmail: 'hello@thegrowthfolks.com',
+  supportEmail: 'team@thegrowthfolks.com',
   // Customer portal where buyers manage or cancel subscriptions (Dodo or Lemon Squeezy).
   manageUrl: 'https://thegrowthfolks.com/account',
   revalidateDays: 3,

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+**The Growth Folks® design system**
+- Side panel, settings and client report now use only `brand/tokens.css` values (copied to `src/brand/tokens.css` for the package): forest green actions, warm off-white surfaces, flat 14px cards, pill buttons, Inter 400/600/800 bundled locally (no remote fonts), light and dark mode.
+- TGF logo mark in the panel header, settings and report; extension icon redrawn in TGF green.
+- Status shown as icon + word + colour (✕ Critical, ! Warning, i Note, ✓ Pass) in the panel and report.
+- Free reports use TGF green with the "Made with … The Growth Folks®" credit; Pro white-label replaces only the accent with the agency's colour (text colour picked for contrast). Status colours stay ours.
+- Contact email is now team@thegrowthfolks.com everywhere. Store graphics regenerated.
+
 **Pro plan readiness** (licensing still off until Dodo products exist; see `docs/PRO-LAUNCH.md`)
 - The developer Pro toggle only works on unpacked installs. Previously a store install could unlock Pro by writing `plan` to storage.
 - Upgrade prompts at each Free limit: scan pages, history, Monitor tab, report branding, "changes since". Each tracks where it was clicked with `utm_content`. Until Pro is on sale they read "Pro: coming soon".

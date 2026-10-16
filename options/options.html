@@ -4,30 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tracking QA Settings</title>
+  <link rel="stylesheet" href="../src/brand/tokens.css">
+  <link rel="stylesheet" href="../src/brand/fonts.css">
   <link rel="stylesheet" href="../sidepanel/sidepanel.css">
   <style>
-    body { max-width: 600px; margin: 0 auto; padding: 28px 16px 40px; }
-    h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin: 0 2px 2px; }
-    body > .tgf-mark { margin: 0 2px 18px; }
-    label { display: block; font-weight: 500; margin: 14px 0 6px; }
+    body { max-width: 640px; margin: 0 auto; padding: var(--s-6) var(--s-4) var(--s-7); }
+    .page-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-5); }
+    .page-head .tgf-logo { width: 36px; height: 36px; border-radius: 10px; font-size: 12px; }
+    h1 { font-size: var(--t-xl); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 0; }
+    label { display: block; font-weight: 600; margin: var(--s-4) 0 6px; }
     input[type=text] { width: 100%; }
-    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    #logo-preview { max-height: 48px; display: block; margin-top: 8px; border-radius: 6px; }
+    .hint { font-size: var(--t-xs); color: var(--ink-soft); margin-top: var(--s-1); }
+    #logo-preview { max-height: 48px; display: block; margin-top: var(--s-2); border-radius: var(--r-sm); }
     textarea { margin-top: 6px; }
-    fieldset { background: var(--card); border: 1px solid var(--hair); border-radius: var(--r-card); box-shadow: var(--shadow);
-      padding: 6px 16px 16px; margin: 0 0 14px; min-width: 0; }
-    legend { float: left; width: 100%; font-size: 13px; font-weight: 600; padding: 10px 0 2px; margin: 0; }
+    fieldset { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s-2) var(--s-4) var(--s-4); margin: 0 0 var(--s-4); min-width: 0; }
+    legend { float: left; width: 100%; font-size: var(--t-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--brand); padding: var(--s-3) 0 var(--s-1); margin: 0; }
     legend + * { clear: both; }
     fieldset > p:first-of-type { clear: both; }
-    label:has(> input[type=checkbox]) { display: flex; align-items: center; gap: 2px; font-weight: 400; }
-    input[type=color] { width: 44px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--surface); cursor: pointer; }
-    input[type=file] { font: inherit; font-size: 12px; }
+    label:has(> input[type=checkbox]) { display: flex; align-items: center; font-weight: 400; }
+    input[type=color] { width: 44px; height: 36px; padding: 3px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); cursor: pointer; }
+    input[type=file] { font: inherit; font-size: var(--t-xs); }
     .locked { opacity: .5; pointer-events: none; }
   </style>
 </head>
 <body>
-  <h1 style="font-size:18px;margin-bottom:2px">Tracking QA settings</h1>
-  <a class="tgf-mark" data-tgf="landing" data-tgf-content="options-header">Tracking QA &amp; Client Audit by The Growth Folks®</a>
+  <header class="page-head">
+    <span class="tgf-logo" aria-hidden="true">TGF</span>
+    <div>
+      <h1>Tracking QA settings</h1>
+      <a class="tgf-mark" data-tgf="landing" data-tgf-content="options-header">Tracking QA &amp; Client Audit by The Growth Folks®</a>
+    </div>
+  </header>
 
   <fieldset>
     <legend>Plan</legend>
@@ -56,7 +63,7 @@
     <label for="agencyName">Agency name</label>
     <input type="text" id="agencyName">
     <label for="contact">Contact line</label>
-    <input type="text" id="contact" placeholder="hello@agency.com · agency.com">
+    <input type="text" id="contact" placeholder="team@agency.com · agency.com">
     <label for="preparedFor">Default "Prepared for"</label>
     <input type="text" id="preparedFor" placeholder="Client name">
     <label for="ctaText">Report call-to-action</label>

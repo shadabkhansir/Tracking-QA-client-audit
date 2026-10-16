@@ -134,7 +134,7 @@ function updateBadge(tabId) {
   chrome.action.setBadgeText({ tabId, text: n ? String(Math.min(n, 999)) : '' }).catch(() => {});
 }
 
-chrome.action.setBadgeBackgroundColor?.({ color: '#2f5bea' }).catch?.(() => {});
+chrome.action.setBadgeBackgroundColor?.({ color: '#1f6b4f' }) // TGF --brand.catch?.(() => {});
 
 async function onNavigate(tabId, url, ts = Date.now(), requestId = null) {
   const { preserveLog } = await getSettings();

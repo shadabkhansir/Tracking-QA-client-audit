@@ -3,7 +3,7 @@ export const TGF = {
   name: 'The Growth Folks®',
   extension: 'Tracking QA & Client Audit',
   slug: 'tracking-qa',
-  email: 'hello@thegrowthfolks.com',
+  email: 'team@thegrowthfolks.com',
 };
 
 const SITE = 'https://thegrowthfolks.com';

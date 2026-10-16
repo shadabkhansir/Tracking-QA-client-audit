@@ -96,7 +96,7 @@ Screenshots show the real extension UI rendered with sample data for a fictional
 **URLs**
 
 - Official URL / homepage: `https://thegrowthfolks.com/tools/tracking-qa`
-- Support URL: `https://thegrowthfolks.com/tools/tracking-qa` (support email: hello@thegrowthfolks.com)
+- Support URL: `https://thegrowthfolks.com/tools/tracking-qa` (support email: team@thegrowthfolks.com)
 - Privacy policy URL: `https://thegrowthfolks.com/tools/tracking-qa/privacy` (source text: `../PRIVACY.md`)
 
 ---
