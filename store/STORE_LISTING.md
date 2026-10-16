@@ -28,12 +28,13 @@ Check GA4, GTM, Meta, TikTok and ChatGPT Ads pixels, see what fires before conse
 Store policy (docs/research/RISKS.md B5, B6):
 - Name at most five supported platforms in the text; link the full list.
 - No competitor or platform names in the title.
-- Include the "not affiliated" line.
+- Include the "not affiliated" line, without listing brand names in it.
+- No competitor product names (e.g. other pixel helpers). UTM Builder & Checker was rejected for keyword spam on 2026-10-16 for a list of five brand names in its description.
 
 ```
 Is your Meta pixel firing? Is GA4 tracking purchases? Do your tags fire before visitors accept cookies? Pixel & Tag Checker answers all three in one click, then turns the result into a report you can send to a client.
 
-A free alternative to Meta Pixel Helper and Google Tag Assistant that checks every tag on the page at once, including tags deployed through Google Tag Manager, server-side tagging and Shopify custom pixels.
+Instead of installing a separate helper for each ad platform, check every tag on the page at once, including tags deployed through a tag manager, server-side tagging and e-commerce custom pixels.
 
 WHAT IT CHECKS
 • Tags found on this page: Google Analytics 4, Google Tag Manager, Meta, TikTok, ChatGPT Ads and 11 more ad and analytics platforms (full list on our website). Firing, not firing, firing twice, or blocked by an ad blocker, with the HTTP status of every request.
@@ -61,7 +62,7 @@ Everything is free: every check, the consent and GPC tests, the inspectors and e
 PRIVACY
 Everything runs in your browser. No account, no server, no analytics: nothing you audit is sent anywhere. Policy: https://thegrowthfolks.com/tools/tag-checker/privacy/
 
-Not affiliated with or endorsed by Google, Meta, TikTok, Microsoft or OpenAI. Product names are used only to describe compatibility.
+Not affiliated with or endorsed by any of the platforms it checks. Product names are used only to describe compatibility.
 
 Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker/
 ```
