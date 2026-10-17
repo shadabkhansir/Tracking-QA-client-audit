@@ -57,10 +57,13 @@ CLIENT REPORT
 Score, plain-English fixes, the consent timeline by vendor and changes since the last audit. Download as PDF.
 
 FREE
-Everything is free: every check, the consent and GPC tests, the inspectors and exports, white-label client reports with your own logo, colours and call-to-action, scans of up to 50 pages, 500 saved audits and scheduled monitoring with desktop alerts (runs while Chrome is open). No account needed.
+Every check, the consent and GPC tests, the inspectors and exports, and client reports with a small credit line. Scans of up to 3 pages and your last 5 saved audits. No account needed.
+
+PRO ($19 a month or $190 a year, 7-day free trial)
+White-label client reports with your own logo, colours and call-to-action, "changes since last audit" in reports, scans of up to 50 pages, scheduled monitoring of up to 20 sites with desktop alerts (runs while Chrome is open) and 500 saved audits. Buy on thegrowthfolks.com and the key activates itself, or paste it in Settings. No account needed. If you installed during the free launch, Pro stays on until 31 January 2027.
 
 PRIVACY
-Everything runs in your browser. No account, no server, no analytics: nothing you audit is sent anywhere. Policy: https://thegrowthfolks.com/tools/tag-checker/privacy/
+Everything runs in your browser. No account, no server, no analytics: nothing you audit is sent anywhere. Pro only sends your licence key to our payment provider to check the subscription. Policy: https://thegrowthfolks.com/tools/tag-checker/privacy/
 
 Not affiliated with or endorsed by any of the platforms it checks. Product names are used only to describe compatibility.
 
@@ -68,7 +71,8 @@ Built by The Growth Folks®: https://thegrowthfolks.com/tools/tag-checker/
 ```
 
 > Before publishing:
-> - This listing is for the free launch (`allFree: true` in src/license-config.js): don't mention Pro or prices. When paid plans start, follow docs/PRO-LAUNCH.md.
+> - This listing is for the paid build (v1.2.0, `allFree: false`). Prices here must match the pricing page and the Dodo products. Before publishing, `src/license-config.js` must be in `mode: 'live'` (docs/PRO-LAUNCH.md).
+> - Dashboard → Store listing → "Contains in-app purchases" (or Distribution, depending on the dashboard version): mark it as yes.
 > - Re-check the ChatGPT Ads facts against https://developers.openai.com/ads (last checked 2026-10-16).
 
 **Graphics** (regenerate with `node store/make-graphics.mjs`)
@@ -188,8 +192,9 @@ All JavaScript is packaged in the extension. There is no `eval`, `new Function`,
 
 ### Data usage
 
-The extension does **not collect or transmit** any user data: it has no server, no analytics, no third-party SDK and
-makes no network requests of its own. All processing happens locally and results stay in `chrome.storage` on the
+The extension does **not collect or transmit** browsing or audit data: it has no server, no analytics and no
+third-party SDK. Its only network requests are licence checks with Dodo Payments for users who activate Pro (the key
+and an activation ID, nothing else). All other processing happens locally and results stay in `chrome.storage` on the
 user's device. Recommended answers:
 
 | Data category | Tick? | Notes |
@@ -197,7 +202,7 @@ user's device. Recommended answers:
 | Personally identifiable information | **Yes** | Not transmitted. Raw tracking payloads of audited pages, which can contain personal data a site leaks (e.g. an email in a pixel), are held in session storage for the live inspector and in files the user exports. Saved audits redact email addresses and keep only the parameter name. |
 | Health information | No | |
 | Financial and payment information | No | |
-| Authentication information | No | |
+| Authentication information | **Yes** | Pro licence key only, sent to Dodo Payments (our payment provider) on activation, about every 3 days and on deactivation, to check the subscription. Ticked to be safe: a key is a credential. |
 | Personal communications | No | |
 | Location | No | |
 | Web history | **Yes** | URLs of pages the user audits are stored locally only and never transmitted. |
@@ -231,7 +236,10 @@ No account or login is needed.
 3. In the Audit tab click "Reload & capture", wait for the page to load, then click "Run audit". You get a score, the tracking platforms detected with their IDs, Google Consent Mode status and a list of findings.
 4. Open the Requests tab to see each tracking request with decoded parameters (click a row to expand). Open the dataLayer tab to see dataLayer pushes in order.
 5. Optional: set "Consent test" to "Accept all" or "Reject all" and run the audit again on a site with a cookie banner. The extension clicks the banner and shows requests before/after, plus a "Consent timeline" card with a verdict per vendor. "GPC signal" reloads the page once with the Sec-GPC header and navigator.globalPrivacyControl set (this is the only use of declarativeNetRequest) and compares the tags.
-6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding (agency name, logo, colour, contact line, call-to-action) is set there too. Every feature is free in this version; there is no payment, account or licence flow.
+6. Click "Save & open client report" to see the printable report. Settings (link in the panel header) contains the switch for the small "Made with ... by The Growth Folks®" footer credit; custom report branding (agency name, logo, colour, contact line, call-to-action) is set there too. 
+7. Pro test: open Settings, paste the test key from "Pro test key" below into "Licence key" and click Activate. The plan changes to Pro: the Monitor tab unlocks, scans allow 50 pages and the report branding fields unlock. "Deactivate on this browser" returns it to Free.
 
-Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension makes no network requests of its own. The ChatGPT Ads, consent timeline and Meta sensitive-data checks work on the same locally observed requests; they added no permissions. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding are free in this version. The alarms and notifications permissions are optional and only requested when monitoring is enabled.
+Pro test key: <paste a live-mode key here: create a 100% discount code in Dodo, buy Pro with it, copy the key from the email>
+
+Notes on permissions: webRequest is used read-only (non-blocking) and only requests to known tracking endpoints are kept. The MAIN-world document_start content script only wraps window.dataLayer.push to log pushes and passes every call through unchanged. The extension's only network requests of its own are licence checks for Pro: POST to live.dodopayments.com/licenses/activate, /validate (about every 3 days) and /deactivate, with the licence key and an activation ID only. Dodo Payments is our Merchant of Record. externally_connectable is limited to https://thegrowthfolks.com/* so the post-checkout thank-you page can hand the new key to the extension; it accepts two messages only (ping and activate). The ChatGPT Ads, consent timeline and Meta sensitive-data checks work on the same locally observed requests; they added no permissions. "Fresh visitor" in the Scan tab requests the optional browsingData permission and deletes cookies only for the URLs being scanned, after a confirmation dialog. Scheduled monitoring and custom report branding are Pro features. The alarms and notifications permissions are optional and only requested when monitoring is enabled.
 ```

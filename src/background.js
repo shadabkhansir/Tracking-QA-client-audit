@@ -5,7 +5,8 @@ import { saveAudit, newId, listAudits, getSettings, listMonitors, saveMonitors }
 import { getLimits, getPlan } from './plan.js';
 import { diffFindings, findPrevious } from './diff.js';
 import { LINKS } from './brand.js';
-import { revalidateIfDue } from './license.js';
+import { revalidateIfDue, activateLicense } from './license.js';
+import { handleSiteMessage } from './site-activate.js';
 
 // Licence keys are re-checked at most every few days, and only for users who activated one.
 revalidateIfDue().catch(() => {});
@@ -237,6 +238,13 @@ chrome.runtime.onInstalled.addListener(details => {
   }
 });
 chrome.runtime.onStartup.addListener(() => scheduleMonitorTick());
+
+// The thank-you page on thegrowthfolks.com hands over the licence key after checkout, so buyers don't have to
+// copy and paste it. Only that site can send messages (manifest externally_connectable).
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  handleSiteMessage(msg, sender, { activate: activateLicense, getPlan }).then(sendResponse);
+  return true;
+});
 
 async function inject(tabId, func, args = []) {
   try {

@@ -1,6 +1,6 @@
 import { getBrand, setBrand, getSettings, setSettings } from '../src/storage.js';
 import { wireTgfLinks } from '../src/brand.js';
-import { getPlan, setPlan, LIMITS, upgradeUrl, allFree, planLabel } from '../src/plan.js';
+import { getPlan, setPlan, LIMITS, upgradeUrl, allFree, planLabel, launchProActive } from '../src/plan.js';
 import { LICENSE_CONFIG } from '../src/license-config.js';
 import { activateLicense, deactivateLicense, getLicense, revalidateIfDue, planFromLicense } from '../src/license.js';
 
@@ -90,7 +90,11 @@ async function renderLicense() {
   $('license-key').value = state?.key ? `${state.key.slice(0, 4)}…${state.key.slice(-4)}` : '';
   $('license-key').disabled = !!state;
   $('license-activate').hidden = !!state;
-  $('license-status').textContent = !state ? 'Free plan. Buy Pro, then paste the licence key from your email.'
+  const { installedVersion } = await chrome.storage.local.get('installedVersion');
+  const launchPro = !active && launchProActive(installedVersion);
+  const until = LICENSE_CONFIG.launchUsersProUntil ? new Date(`${LICENSE_CONFIG.launchUsersProUntil}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  $('license-status').textContent = !state && launchPro ? `You installed during the free launch, so Pro stays on until ${until}. Add a licence key before then to keep it.`
+    : !state ? 'Free plan. Buy Pro, then paste the licence key from your email.'
     : active ? `Active: ${state.productName || 'Pro'}${state.variantName ? ` (${state.variantName})` : ''}. Last checked ${new Date(state.validatedAt).toLocaleDateString()}.`
       : 'This licence is no longer active (expired, cancelled or refunded). Deactivate it here and enter a current key.';
 }

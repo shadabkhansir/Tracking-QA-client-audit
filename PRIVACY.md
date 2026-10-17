@@ -1,6 +1,6 @@
 # Privacy Policy: Pixel & Tag Checker by The Growth Folks®
 
-_Last updated: 2026-10-16_
+_Last updated: 2026-10-17_
 
 Pixel & Tag Checker ("the extension") is a Chrome extension published by The Growth Folks®. It checks the
 analytics and advertising tags on websites you choose to audit. Everything it does happens inside your own browser.
@@ -8,7 +8,8 @@ analytics and advertising tags on websites you choose to audit. Everything it do
 ## Summary
 
 - The extension has **no server**, **no analytics**, **no ads** and **no third-party SDKs**.
-- It **does not send any data** to The Growth Folks® or to anyone else.
+- It **does not send any browsing or audit data** to The Growth Folks® or to anyone else.
+- If you buy Pro, your licence key is checked with Dodo Payments, our reseller. Nothing else goes with it.
 - Audit data stays in your browser's extension storage until you delete it or remove the extension.
 
 ## What the extension reads
@@ -60,7 +61,8 @@ not the full value.
 | Data | Where | How long |
 |---|---|---|
 | Live tracking requests and dataLayer pushes for each tab | `chrome.storage.session` (memory, never written to disk by Chrome) | Reset when the tab navigates (unless you turn on "Preserve log"), deleted when the tab closes, and gone when the browser quits |
-| Install date and version (`installedAt`, `installedVersion`), used only to honour launch offers if paid plans start | `chrome.storage.local` on your device | Until you remove the extension |
+| Install date and version (`installedAt`, `installedVersion`), used only to give free-launch users Pro until the date shown in Settings | `chrome.storage.local` on your device | Until you remove the extension |
+| Pro licence: the key, its activation ID, product name and when it was last checked | `chrome.storage.local` on your device | Until you click "Deactivate on this browser" or remove the extension |
 | Saved audits: page URLs and titles, score, findings, tag IDs, event names, consent states, cookie names and metadata (no values) | `chrome.storage.local` on your device | Until you delete them in History. Up to the last 500 are kept |
 | Report notes and "Prepared for" text you type | `chrome.storage.local` | Stored with the audit |
 | Report branding you enter (agency name, contact line, colour, logo, call-to-action link) | `chrome.storage.local` | Until you change it or remove the extension |
@@ -76,12 +78,25 @@ URLs are kept as visited.
 
 ## What it sends
 
-The extension sends no data to The Growth Folks® or anyone else and has no server to receive data. The only pages it loads are the ones you ask it to scan or monitor and, once after install, a welcome page. Reports, CSV, JSON and HAR
+The extension sends no browsing or audit data to The Growth Folks® or anyone else and has no server to receive data. The only pages it loads are the ones you ask it to scan or monitor and, once after install, a welcome page. Reports, CSV, JSON and HAR
 files are generated locally and only leave your computer if you choose to download, print or share them.
 
 The extension opens links to thegrowthfolks.com (help, privacy, the welcome page after install, and an optional credit
 link in reports). These links carry UTM parameters that say the click came from the extension and from which part of
 the interface; they contain no audit data. Pages on thegrowthfolks.com are covered by that site's own privacy policy.
+
+## Pro licence
+
+If you activate Pro, the extension sends your licence key and an activation ID to
+Dodo Payments (`live.dodopayments.com`) when you activate it, about every 3 days to confirm the subscription is still
+active, and when you deactivate it. The activation is named after the extension plus a random install code, so you can
+tell your browsers apart in Dodo's customer portal. No browsing data, audit results or page content is sent. Purchases,
+payment details and your email address are handled by Dodo Payments, our reseller and Merchant of Record, under
+[its privacy policy](https://dodopayments.com/privacy-policy). The extension doesn't keep your email address.
+
+The thank-you page on thegrowthfolks.com can pass your new licence key straight to the extension so
+you don't have to paste it. Only pages on thegrowthfolks.com can send it messages, and the only two it accepts are "is
+the extension installed?" and "activate this key".
 
 ## Optional permissions and actions you trigger
 

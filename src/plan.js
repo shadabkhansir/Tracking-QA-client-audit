@@ -22,6 +22,20 @@ async function isDevInstall() {
 // Launch period: every feature free for everyone (LICENSE_CONFIG.allFree). Internally that is the 'pro' tier.
 export const allFree = (cfg = LICENSE_CONFIG) => !!cfg.allFree;
 
+// Installed during the free launch? background.js records installedVersion on install, and "<=x" for updates
+// from 1.0, before the paid build existed. Installs older than paidSinceVersion keep Pro until launchUsersProUntil.
+const vnum = v => String(v).split('.').map(Number).reduce((n, x, i) => n + (x || 0) * 1000 ** (2 - i), 0);
+export function isLaunchUser(installedVersion, cfg = LICENSE_CONFIG) {
+  if (!installedVersion) return false;
+  if (String(installedVersion).startsWith('<=')) return true;
+  return vnum(installedVersion) < vnum(cfg.paidSinceVersion || '0');
+}
+
+export function launchProActive(installedVersion, cfg = LICENSE_CONFIG, now = Date.now()) {
+  if (!cfg.launchUsersProUntil || !isLaunchUser(installedVersion, cfg)) return false;
+  return now < Date.parse(`${cfg.launchUsersProUntil}T23:59:59Z`);
+}
+
 export async function getPlan(cfg = LICENSE_CONFIG) {
   if (allFree(cfg)) return 'pro';
   if (await isDevInstall()) {
@@ -29,7 +43,9 @@ export async function getPlan(cfg = LICENSE_CONFIG) {
     if (plan === 'pro') return 'pro';
   }
   if (!cfg.enabled) return 'free';
-  return planFromLicense(await getLicense()) === 'pro' ? 'pro' : 'free';
+  if (planFromLicense(await getLicense(), Date.now(), cfg) === 'pro') return 'pro';
+  const { installedVersion } = await chrome.storage.local.get('installedVersion');
+  return launchProActive(installedVersion, cfg) ? 'pro' : 'free';
 }
 
 // What the UI calls the current plan: "Free" for everyone during the free launch.
