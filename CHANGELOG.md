@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 (2026-10-17): Pro with Dodo Payments
+
+Pro goes on sale: $19 a month or $190 a year with a 7-day free trial, sold through Dodo Payments. The free launch switch is off (`allFree: false`, `enabled: true`).
+
+- Free keeps every check, the consent and GPC tests, the inspectors and exports. Reports carry the credit line, scans stop at 3 pages and History keeps the last 5 audits.
+- Pro unlocks white-label reports, "changes since last audit", 50-page scans, monitoring of up to 20 sites and 500 saved audits.
+- Anyone who installed v1.1 or earlier keeps Pro until 31 January 2027 (`launchUsersProUntil`), with the date shown in Settings.
+- The TGF All-Access key also unlocks Pro.
+- After checkout, the thank-you page on thegrowthfolks.com hands the key to the extension (`externally_connectable`, limited to thegrowthfolks.com), so there's nothing to paste.
+- `src/license-config.js` keeps test and live Dodo IDs side by side. This build is in **test mode**: switch `MODE` to `'live'` after creating the live products.
+- `npm run test:license` runs a real activate, validate and deactivate against Dodo test mode.
+- Privacy policy and store listing cover licence validation.
+
 ## 1.1.0 (2026-10-16): Pixel & Tag Checker
 
 **Renamed** to "Pixel & Tag Checker: GA4, GTM, Meta Audit – The Growth Folks®" (short name "Tag Checker"). Website slug is now `tag-checker`. Storage keys are unchanged, so existing audits, settings and branding carry over.

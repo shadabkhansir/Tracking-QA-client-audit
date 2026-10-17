@@ -3,6 +3,13 @@
 _Written 2026-10-15. Decisions are final unless you change them: $19/month or $190/year (launch offer $15/$150 for the
 first 100 customers), 7-day free trial, "Changes since last audit" is Pro. The brand keeps "The Growth Folks®" (owner's decision)._
 
+## Status (2026-10-17)
+
+Dodo approved the account on 2026-10-17. v1.2.0 is the paid build, wired to **Dodo test mode**:
+- Test products exist (Pixel & Tag Checker Pro Monthly/Yearly, TGF All-Access Monthly/Yearly, 7-day trial, licence keys with 5 activations, 10 for All-Access). Their IDs are in `src/license-config.js` → `MODES.test`.
+- Test keys for trying it: `TGF-TEST-TAG-PRO-0001` (this extension) and `TGF-TEST-ALL-ACCESS-0001` (bundle). `npm run test:license` exercises both.
+- Left for you: create the same products in **live** mode (Dodo can copy them), send the live business ID and product IDs, then `MODE = 'live'`. The full resubmission steps for both extensions are in the shared guide linked from the PR.
+
 ## 0. Ending the free launch (read first)
 
 Version 1.1 ships with `allFree: true` in `src/license-config.js`: every feature is free for everyone and no upgrade prompts or Pro badges show. Going paid means:

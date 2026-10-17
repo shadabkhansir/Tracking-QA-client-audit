@@ -13,7 +13,7 @@ _Version 1.1.0 · 2026-10-16 · repo `shadabkhansir/Tracking-QA-client-audit`. E
 | **short_name** | Tag Checker |
 | **version** | 1.1.0 |
 | **Chrome Web Store** | Not live yet. Show "Coming soon" until the link exists. |
-| **Price** | **Free: every feature, no account.** Free launch (`allFree: true`). Don't show prices, Pro or a buy button. Paid plans may come later (docs/PRO-LAUNCH.md). |
+| **Price** | Free plan, plus **Pro at $19/month or $190/year** with a 7-day free trial (v1.2.0, Dodo Payments). Free-launch installs keep Pro until 31 January 2027. Pricing lives on `/tools/tag-checker/pricing/`. |
 | **Contact** | team@thegrowthfolks.com |
 
 **Pages the extension links to:** each one must exist.
@@ -21,9 +21,10 @@ _Version 1.1.0 · 2026-10-16 · repo `shadabkhansir/Tracking-QA-client-audit`. E
 - `/tools/tag-checker/welcome/` (opened once after install)
 - `/tools/tag-checker/privacy/` (publish `PRIVACY.md` verbatim)
 - `/tools/tag-checker/pricing/` (upgrade links)
+- `/tools/tag-checker/activated/` (Dodo checkout returns here with the licence key)
 - `/learn/`
 
-Incoming links carry `utm_source=chrome-extension` (upgrade prompts are switched off during the free launch). The `/pricing/` page can say "Free during launch" until paid plans exist.
+Incoming links carry `utm_source=chrome-extension`, `utm_medium=upgrade` and `utm_content=<prompt>` (scan-limit, history-limit, monitor-tab, report-toolbar, report-changes, options-plan). Dodo's checkout returns buyers to `/tools/tag-checker/activated/`, which hands the licence key to the extension.
 
 ## Copy
 
@@ -50,7 +51,7 @@ Incoming links carry `utm_source=chrome-extension` (upgrade prompts are switched
 4. Read the score, the consent timeline and the fixes, then **Save & open client report** to download the PDF.
 
 **Five FAQs:**
-1. **Is it free?** Yes, completely: every check, the consent and GPC tests, white-label client reports, 50-page scans, 500 saved audits and scheduled monitoring. No account, no card.
+1. **Is it free?** The audit itself is: every check, the consent and GPC tests, the inspectors, exports and client reports with a credit line. Pro ($19/month or $190/year, 7-day free trial) adds white-label reports, "changes since last audit", 50-page scans, monitoring and 500 saved audits. No account either way.
 2. **Does it send my data anywhere?** No. Everything runs in your browser. There's no account, server or analytics, and saved audits stay in your browser.
 3. **Can it see server-side tracking (Conversions API, Measurement Protocol)?** No. It sees what the browser sends. It checks the browser side of deduplication (event IDs) and click-ID capture, and says clearly where server-side checks are needed.
 4. **How does it know a tag fired before consent?** Google and Microsoft Ads include a consent value in each request; for every other vendor it compares the request time with the moment the banner choice was made. Run the cookie banner test as a fresh visitor for a full verdict.
