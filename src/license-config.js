@@ -3,7 +3,7 @@
 //
 // Going live: create the same products in Dodo live mode, paste their IDs into MODES.live, set `mode: 'live'`
 // and bump the manifest version. Nothing else changes.
-const MODE = 'test';
+const MODE = 'live';
 
 // Dodo test and live mode have separate product IDs. Test keys only work against test.dodopayments.com.
 const MODES = {
@@ -24,7 +24,7 @@ const MODES = {
     manageUrl: 'https://test.customer.dodopayments.com/login/bus_0NpnX11SKy0ofT8uayAT6',
   },
   live: {
-    storeId: null, // live business ID (Dodo dashboard, live mode → Settings → Business) before setting MODE = 'live'
+    storeId: 'bus_0NpnX11SKy0ofT8uayAT6', // same business ID in test and live mode
     products: {
       pdt_0Npxp3ugqDlaQDD6Mjhw9: 'pro', // Pixel & Tag Checker Pro (Monthly)
       pdt_0Npxp4xtP2xQRUu2oAbv9: 'pro', // Pixel & Tag Checker Pro (Yearly)
@@ -33,7 +33,7 @@ const MODES = {
       pdt_0Npxp6rD3OAx9RfjNonQF: 'pro', // TGF All-Access (Monthly)
       pdt_0Npxp2GlMXBZyebLIJbn1: 'pro', // TGF All-Access (Yearly)
     },
-    manageUrl: null, // 'https://customer.dodopayments.com/login/<live business ID>'
+    manageUrl: 'https://customer.dodopayments.com/login/bus_0NpnX11SKy0ofT8uayAT6',
   },
 };
 
